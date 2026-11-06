@@ -7,6 +7,7 @@
 use async_trait::async_trait;
 use fs_store::ObjectId;
 
+use crate::cancel::CancelToken;
 use crate::model::{CheckResult, RecordingInfo};
 use crate::note::Note;
 use crate::secret::Secret;
@@ -97,8 +98,8 @@ pub trait Relay: Send + Sync {
     async fn set_recording(&self, stream: ObjectId, on: bool);
     /// Counters of a running stream.
     async fn status(&self, stream: ObjectId) -> Option<RelayStatus>;
-    /// Try the targets without sending media.
-    async fn check(&self, stream: ObjectId, targets: Vec<TargetSpec>) -> Vec<CheckResult>;
+    /// Try the targets without sending media; unfinished ones end when `cancel` is sent.
+    async fn check(&self, targets: Vec<TargetSpec>, cancel: CancelToken) -> Vec<CheckResult>;
     /// A stream was deleted.
     async fn forget(&self, stream: ObjectId);
 }

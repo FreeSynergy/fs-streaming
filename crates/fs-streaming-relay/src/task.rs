@@ -5,7 +5,6 @@
 
 use std::future::Future;
 
-use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 /// A spawned task that ends with its owner.
@@ -46,25 +45,4 @@ impl Drop for Task {
     }
 }
 
-/// A signal that can be sent once and awaited by many.
-#[derive(Clone)]
-pub struct CancelToken(watch::Sender<bool>);
-
-impl Default for CancelToken {
-    fn default() -> Self {
-        Self(watch::channel(false).0)
-    }
-}
-
-impl CancelToken {
-    /// Send the signal.
-    pub fn cancel(&self) {
-        self.0.send_replace(true);
-    }
-
-    /// Wait for the signal.
-    pub async fn cancelled(&self) {
-        let mut rx = self.0.subscribe();
-        let _ = rx.wait_for(|v| *v).await;
-    }
-}
+pub use fs_streaming_core::CancelToken;

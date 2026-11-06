@@ -3,7 +3,7 @@
 //! Pattern: Adapter — the core's port calls become calls on live streams and checks.
 
 use async_trait::async_trait;
-use fs_streaming_core::{CheckResult, ObjectId, Relay, RelayStatus, TargetSpec};
+use fs_streaming_core::{CancelToken, CheckResult, ObjectId, Relay, RelayStatus, TargetSpec};
 
 use super::RtmpRelay;
 use super::check::run_checks;
@@ -15,7 +15,6 @@ impl Relay for RtmpRelay {
     }
 
     async fn stop_sender(&self, stream: ObjectId) {
-        self.cancel_check(stream);
         let live = self.shared.live.lock().await.get(&stream).cloned();
         if let Some(live) = live {
             live.end(false).await;
@@ -48,25 +47,11 @@ impl Relay for RtmpRelay {
         Some(live.status().await)
     }
 
-    async fn check(&self, stream: ObjectId, targets: Vec<TargetSpec>) -> Vec<CheckResult> {
-        run_checks(&self.shared, stream, targets).await
+    async fn check(&self, targets: Vec<TargetSpec>, cancel: CancelToken) -> Vec<CheckResult> {
+        run_checks(&self.shared, targets, cancel).await
     }
 
     async fn forget(&self, stream: ObjectId) {
         self.stop_sender(stream).await;
-    }
-}
-
-impl RtmpRelay {
-    pub(super) fn cancel_check(&self, stream: ObjectId) {
-        if let Some(t) = self
-            .shared
-            .checks
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .get(&stream)
-        {
-            t.cancel();
-        }
     }
 }

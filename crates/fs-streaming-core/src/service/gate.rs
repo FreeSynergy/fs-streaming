@@ -40,6 +40,9 @@ impl Gate for StreamService {
             let mut guard = self.rt();
             let rt = guard.entry(stream).or_default();
             let was_live = rt.is_live();
+            if let Some(t) = rt.check_cancel.take() {
+                t.cancel();
+            }
             let _ = rt.apply(StreamEvent::SenderConnected);
             rt.problem = None;
             if !was_live {

@@ -128,6 +128,7 @@ impl Streams for StreamService {
 
     async fn stop(&self, id: ObjectId) -> Result<Stream> {
         let row = self.row(id).await?;
+        self.cancel_check(id);
         self.relay()?.stop_sender(id).await;
         self.finish_sender(id).await;
         self.finish_check(id).await;

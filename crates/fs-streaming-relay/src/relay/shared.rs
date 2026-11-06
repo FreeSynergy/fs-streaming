@@ -3,14 +3,13 @@
 //! Pattern: Registry — the live streams by id and the running checks by stream id, plus the settings.
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use fs_streaming_core::{Gate, ObjectId};
 use tokio::sync::Mutex as AsyncMutex;
 
 use crate::config::RelayConfig;
 use crate::live::LiveStream;
-use crate::task::CancelToken;
 use crate::wire::{Dialer, Tls};
 
 /// Shared state of one relay.
@@ -19,7 +18,6 @@ pub struct Shared {
     pub cfg: RelayConfig,
     pub dialer: Dialer,
     pub live: AsyncMutex<HashMap<ObjectId, Arc<LiveStream>>>,
-    pub checks: Mutex<HashMap<ObjectId, CancelToken>>,
 }
 
 impl Shared {
@@ -30,7 +28,6 @@ impl Shared {
             cfg,
             dialer,
             live: AsyncMutex::new(HashMap::new()),
-            checks: Mutex::new(HashMap::new()),
         })
     }
 

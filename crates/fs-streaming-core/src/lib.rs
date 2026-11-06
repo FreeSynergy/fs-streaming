@@ -16,6 +16,7 @@
     clippy::module_name_repetitions
 )]
 
+mod cancel;
 mod error;
 pub mod keys;
 pub mod model;
@@ -28,6 +29,7 @@ pub mod traits;
 mod unsupported;
 mod url;
 
+pub use cancel::CancelToken;
 pub use error::{Error, Result};
 pub use fs_store::{ObjectId, Timestamp};
 pub use model::{

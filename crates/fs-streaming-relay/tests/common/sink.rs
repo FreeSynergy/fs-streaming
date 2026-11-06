@@ -54,6 +54,11 @@ impl Drop for Sink {
 
 impl Sink {
     pub async fn start(mode: Mode) -> Sink {
+        Sink::start_with(mode, None).await
+    }
+
+    /// With TLS in front when an acceptor is given.
+    pub async fn start_with(mode: Mode, tls: Option<tokio_rustls::TlsAcceptor>) -> Sink {
         let socket = tokio::net::TcpSocket::new_v4().unwrap();
         if mode == Mode::Stall {
             socket.set_recv_buffer_size(4096).unwrap();
@@ -76,7 +81,17 @@ impl Sink {
                 };
                 a.lock().unwrap().push(Instant::now());
                 if mode != Mode::HangUp {
-                    conns.spawn(serve(s, mode, g.clone(), p.clone(), rx.clone()));
+                    let (g, p, rx, tls) = (g.clone(), p.clone(), rx.clone(), tls.clone());
+                    conns.spawn(async move {
+                        match tls {
+                            Some(t) => {
+                                if let Ok(secure) = t.accept(s).await {
+                                    serve(secure, mode, g, p, rx).await;
+                                }
+                            }
+                            None => serve(s, mode, g, p, rx).await,
+                        }
+                    });
                 }
             }
         });
@@ -137,16 +152,16 @@ async fn handshake<S: AsyncRead + AsyncWrite + Unpin>(s: &mut S) -> Vec<u8> {
     }
 }
 
-async fn serve(
-    mut s: tokio::net::TcpStream,
+async fn serve<S: AsyncRead + AsyncWrite + Unpin>(
+    mut s: S,
     mode: Mode,
     got: Arc<Mutex<Vec<Got>>>,
     pubs: Arc<Mutex<Vec<(String, String)>>>,
     mut rx: watch::Receiver<bool>,
 ) {
     if mode == Mode::Silent {
-        let mut b = [0u8; 1];
-        let _ = s.read(&mut b).await;
+        let mut b = [0u8; 1024];
+        while matches!(s.read(&mut b).await, Ok(n) if n > 0) {}
         return;
     }
     let mut early = handshake(&mut s).await;

@@ -51,14 +51,5 @@ impl RtmpRelay {
         for live in all {
             live.end(false).await;
         }
-        for token in self
-            .shared
-            .checks
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .values()
-        {
-            token.cancel();
-        }
     }
 }

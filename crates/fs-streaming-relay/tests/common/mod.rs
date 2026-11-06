@@ -5,4 +5,5 @@ pub mod ff;
 pub mod raw;
 pub mod rig;
 pub mod sink;
+pub mod tls;
 pub mod wait;

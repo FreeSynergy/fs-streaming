@@ -6,25 +6,18 @@
 
 use std::sync::Arc;
 
-use fs_streaming_core::{CheckResult, KeyCheck, Note, ObjectId, TargetSpec};
+use fs_streaming_core::{CancelToken, CheckResult, KeyCheck, Note, TargetSpec};
 use tokio::task::JoinSet;
 
 use super::Shared;
-use crate::task::CancelToken;
 use crate::wire::{Client, DialFailure, Dialer, PublishOutcome};
 
 /// Run the checks; a cancel (a sender connecting, `stop`) ends the unfinished ones.
 pub async fn run_checks(
     shared: &Arc<Shared>,
-    stream: ObjectId,
     specs: Vec<TargetSpec>,
+    token: CancelToken,
 ) -> Vec<CheckResult> {
-    let token = CancelToken::default();
-    shared
-        .checks
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .insert(stream, token.clone());
     let mut set = JoinSet::new();
     for (i, spec) in specs.iter().cloned().enumerate() {
         let dialer = shared.dialer.clone();
@@ -38,14 +31,13 @@ pub async fn run_checks(
                 Some(Err(_)) => {}
                 None => break,
             },
-            () = token.cancelled() => { set.abort_all(); while set.join_next().await.is_some() {} break; }
+            () = token.cancelled() => {
+                set.abort_all();
+                while set.join_next().await.is_some() {}
+                break;
+            }
         }
     }
-    shared
-        .checks
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .remove(&stream);
     specs
         .iter()
         .zip(results)
