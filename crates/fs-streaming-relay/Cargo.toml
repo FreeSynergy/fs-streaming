@@ -1,0 +1,17 @@
+[package]
+name = "fs-streaming-relay"
+description = "RTMP in, many RTMP and RTMPS targets out, recording as FLV; forwards without decoding"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fs-streaming-core = { path = "../fs-streaming-core" }
+rml_rtmp = "0.8"
+tokio = { version = "1", features = ["full"] }
+tokio-rustls = "0.26"
+webpki-roots = "1"
+thiserror = "2"
+async-trait = "0.1"
+bytes = "1"
