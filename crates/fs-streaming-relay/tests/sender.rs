@@ -30,7 +30,6 @@ async fn publish(rig: &Rig, made: &Made) -> (Raw, Answer) {
     (raw, a)
 }
 
-/// The connection was closed by the relay.
 async fn is_closed(raw: &mut Raw) -> bool {
     let mut b = [0u8; 4096];
     loop {
@@ -165,7 +164,7 @@ async fn a_short_drop_is_interrupted_and_continues_a_long_one_ends() {
         1,
         "the recording is one file across the interruption"
     );
-    let tags = flv_tags(&std::fs::read(files[0].path()).unwrap());
+    let tags = common::flv::tags(&std::fs::read(files[0].path()).unwrap());
     for ts in [0, 40, 400, 440] {
         assert!(
             tags.iter().any(|t| t.0 == 9 && t.1 == ts),
@@ -198,17 +197,4 @@ async fn stop_ends_the_sender_which_can_reconnect_and_rotate_key_keeps_it_out() 
     let mut fresh = made.clone();
     fresh.key = new_key.expose().to_string();
     assert_eq!(publish(&rig, &fresh).await.1, Answer::Accepted);
-}
-
-/// `(type, timestamp)` of every tag of an FLV file.
-fn flv_tags(flv: &[u8]) -> Vec<(u8, u32)> {
-    let mut at = 13;
-    let mut out = vec![];
-    while at + 11 <= flv.len() {
-        let len = u32::from_be_bytes([0, flv[at + 1], flv[at + 2], flv[at + 3]]) as usize;
-        let ts = u32::from_be_bytes([flv[at + 7], flv[at + 4], flv[at + 5], flv[at + 6]]);
-        out.push((flv[at], ts));
-        at += 11 + len + 4;
-    }
-    out
 }

@@ -94,10 +94,12 @@ impl TargetUrl {
     pub fn app(&self) -> &str {
         &self.path
     }
-    /// Whether a key may stay when the address changes from `self` to `new`: same host and port, and
-    /// not from rtmps to rtmp.
+    /// Whether a key may stay when the address changes from `self` to `new`: same host, the same port
+    /// (two addresses without a port count as the same, so going to rtmps keeps it), and not from
+    /// rtmps to rtmp.
     pub fn keeps_key_for(&self, new: &Self) -> bool {
-        self.host == new.host && self.port() == new.port() && (new.secure || !self.secure)
+        let same_port = self.port == new.port || self.port() == new.port();
+        self.host == new.host && same_port && (new.secure || !self.secure)
     }
 }
 
