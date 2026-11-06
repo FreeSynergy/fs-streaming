@@ -17,18 +17,20 @@ use tokio::sync::OwnedSemaphorePermit;
 
 use std::sync::Arc;
 
-use super::conn::{Conn, Publishing};
+use super::acks::Acks;
+use super::conn::Conn;
+use super::publishing::Publishing;
 use crate::error::WireError;
 use crate::relay::Shared;
 use crate::task::CancelToken;
 use crate::wire::{MessageReader, handshake};
 
 /// Serve one connection until it ends; tell the live stream if the sender was its current one.
-pub async fn serve(shared: Arc<Shared>, mut io: TcpStream, _permit: OwnedSemaphorePermit) {
+pub async fn serve(shared: Arc<Shared>, mut io: TcpStream, permit: OwnedSemaphorePermit) {
     let _ = io.set_nodelay(true);
     let cancel = CancelToken::default();
     let mut publishing = None;
-    let run = run(&shared, &mut io, cancel.clone(), &mut publishing);
+    let run = run(&shared, &mut io, cancel.clone(), &mut publishing, permit);
     let outcome = tokio::select! {
         r = run => r,
         () = cancel.cancelled() => Ok(()),
@@ -46,6 +48,7 @@ async fn run(
     io: &mut TcpStream,
     cancel: CancelToken,
     publishing: &mut Option<Publishing>,
+    permit: OwnedSemaphorePermit,
 ) -> Result<(), WireError> {
     let lim = shared.cfg.limits;
     let deadline = Instant::now() + lim.publish_deadline;
@@ -64,6 +67,9 @@ async fn run(
         session,
         ser: ChunkSerializer::new(),
         publishing: publishing.take(),
+        permit: Some(permit),
+        deadline,
+        acks: Acks::default(),
     };
     let result = serve_messages(&mut c, &mut early, deadline, first).await;
     *publishing = c.publishing.take();
@@ -107,6 +113,7 @@ async fn serve_messages(
         if let Some(p) = &c.publishing {
             p.live.hub.count_in(data.len());
         }
+        c.acknowledge(data.len()).await?;
         for m in reader.feed(&data)? {
             last_message = Instant::now();
             if !c.message(m).await? {

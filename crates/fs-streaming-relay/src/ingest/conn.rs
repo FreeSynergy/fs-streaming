@@ -6,7 +6,7 @@
 //! same refusal.
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use fs_streaming_core::ObjectId;
 use rml_rtmp::chunk_io::ChunkSerializer;
@@ -14,39 +14,16 @@ use rml_rtmp::messages::MessagePayload;
 use rml_rtmp::sessions::{ServerSession, ServerSessionEvent, ServerSessionResult};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpStream;
+use tokio::sync::OwnedSemaphorePermit;
 
+use super::acks::Acks;
 use super::path::parse;
+use super::publishing::Publishing;
 use crate::error::WireError;
 use crate::frame::{Frame, Kind};
-use crate::live::{Attach, LiveStream};
+use crate::live::Attach;
 use crate::relay::Shared;
 use crate::task::CancelToken;
-
-/// The stream this connection feeds. Dropping it without `release` still tells the live stream.
-pub struct Publishing {
-    pub live: Arc<LiveStream>,
-    pub serial: u64,
-    pub stream_id: u32,
-    pub armed: bool,
-}
-
-impl Publishing {
-    pub async fn release(mut self) {
-        self.armed = false;
-        self.live.dropped(self.serial).await;
-    }
-}
-
-impl Drop for Publishing {
-    fn drop(&mut self) {
-        if self.armed {
-            if let Ok(rt) = tokio::runtime::Handle::try_current() {
-                let (live, serial) = (self.live.clone(), self.serial);
-                rt.spawn(async move { live.dropped(serial).await });
-            }
-        }
-    }
-}
 
 pub struct Conn<'a> {
     pub shared: &'a Arc<Shared>,
@@ -55,6 +32,12 @@ pub struct Conn<'a> {
     pub session: ServerSession,
     pub ser: ChunkSerializer,
     pub publishing: Option<Publishing>,
+    /// The connection's place among the limited ones, held until it has published.
+    pub permit: Option<OwnedSemaphorePermit>,
+    /// When an answer must have been written, if it has not published yet.
+    pub deadline: Instant,
+    /// Bytes read from the socket, the window the sender announced, and what was acknowledged.
+    pub acks: Acks,
 }
 
 pub async fn write(io: &mut TcpStream, bytes: &[u8], stall: Duration) -> Result<(), WireError> {
@@ -73,7 +56,8 @@ impl Conn<'_> {
         for r in results {
             match r {
                 ServerSessionResult::OutboundResponse(p) => {
-                    write(self.io, &p.bytes, self.shared.cfg.limits.write_stall).await?;
+                    let stall = self.write_limit();
+                    write(self.io, &p.bytes, stall).await?;
                 }
                 ServerSessionResult::RaisedEvent(e) => events.push(e),
                 ServerSessionResult::UnhandleableMessageReceived(_) => {}
@@ -86,6 +70,10 @@ impl Conn<'_> {
     pub async fn message(&mut self, m: MessagePayload) -> Result<bool, WireError> {
         match m.type_id {
             2..=6 | 17 | 20 => {
+                if m.type_id == 5 && m.data.len() >= 4 {
+                    let w = [m.data[0], m.data[1], m.data[2], m.data[3]];
+                    self.acks.window = u64::from(u32::from_be_bytes(w));
+                }
                 // A command rml_amf0 cannot read (a Date, say) is skipped, not a reason to disconnect.
                 let readable = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     m.to_rtmp_message().is_ok()
@@ -117,7 +105,7 @@ impl Conn<'_> {
                     if p.stream_id == m.message_stream_id {
                         p.live
                             .hub
-                            .publish(Frame::new(kind, m.timestamp.value, m.data));
+                            .publish(p.serial, Frame::new(kind, m.timestamp.value, m.data));
                     }
                 }
                 Ok(true)
@@ -157,6 +145,7 @@ impl Conn<'_> {
                 let mut p = p;
                 p.stream_id = stream;
                 self.publishing = Some(p);
+                self.permit = None;
                 let out = self
                     .session
                     .accept_request(request_id)

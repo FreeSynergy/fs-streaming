@@ -23,10 +23,18 @@ async fn a_target_at_the_relays_own_address_is_refused_also_through_a_wildcard_b
         let rig = Rig::with(cfg).await;
         let made = rig.stream("s").await;
         let port = rig.addr.port();
-        for host in ["127.0.0.1", "localhost", "127.1.2.3", "[::1]"] {
-            if !wildcard && host != "127.0.0.1" && host != "localhost" && host != "127.1.2.3" {
-                continue;
-            }
+        let mut hosts = vec![
+            "127.0.0.1",
+            "localhost",
+            "127.1.2.3",
+            "[::ffff:127.0.0.1]",
+            "0.0.0.0",
+            "[::]",
+        ];
+        if wildcard {
+            hosts.push("[::1]");
+        }
+        for host in hosts {
             let url = format!("rtmp://{host}:{port}/live/{}", made.id);
             let e = rig
                 .service

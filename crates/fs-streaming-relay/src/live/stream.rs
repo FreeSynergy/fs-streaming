@@ -92,7 +92,7 @@ impl LiveStream {
             serial: g.serial,
             cancel,
         };
-        self.hub.new_sender();
+        self.hub.new_sender(g.serial);
         g.sender = Some(ticket.clone());
         self.shared.gate.sender_connected(self.id).await;
         if !g.running {

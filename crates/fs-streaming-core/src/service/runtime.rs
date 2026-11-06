@@ -27,6 +27,8 @@ pub(super) struct StreamRt {
     /// Where a check came from.
     pub before_check: StreamState,
     pub problem: Option<Note>,
+    /// Counts the senders that were accepted; a change of state for an older one is stale.
+    pub generation: u64,
     /// Why the stream is in `error`.
     pub note: Option<Note>,
     /// Ends the running check.
@@ -41,6 +43,7 @@ impl Default for StreamRt {
             since: chrono::Utc::now(),
             before_check: StreamState::Idle,
             problem: None,
+            generation: 0,
             note: None,
             check_cancel: None,
             targets: HashMap::new(),

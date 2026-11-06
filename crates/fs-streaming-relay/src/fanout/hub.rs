@@ -42,6 +42,8 @@ struct Inner {
     has_video: bool,
     has_audio: bool,
     clock: Clock,
+    /// The only sender whose frames count.
+    sender: u64,
 }
 
 /// Frames in, branches out.
@@ -59,8 +61,12 @@ impl Hub {
     }
 
     /// Hand one frame to every branch.
-    pub fn publish(&self, mut frame: Frame) {
+    /// Returns `false` if `sender` is not the current one: its frames are dropped.
+    pub fn publish(&self, sender: u64, mut frame: Frame) -> bool {
         let mut g = self.lock();
+        if g.sender != sender {
+            return false;
+        }
         frame.timestamp = g.clock.map(frame.timestamp);
         let frame = Arc::new(frame);
         match frame.kind {
@@ -73,11 +79,14 @@ impl Hub {
         for b in &g.branches {
             b.offer(&frame, heads, has_video);
         }
+        true
     }
 
     /// A new sender begins: its timestamps are shifted so they keep rising for everything downstream.
-    pub fn new_sender(&self) {
-        self.lock().clock.rebase = true;
+    pub fn new_sender(&self, sender: u64) {
+        let mut g = self.lock();
+        g.sender = sender;
+        g.clock.rebase = true;
     }
 
     /// Count bytes received from the sender.

@@ -58,6 +58,7 @@ impl Gate for StreamService {
             let mut guard = self.rt();
             let rt = guard.entry(stream).or_default();
             let was_live = rt.is_live();
+            rt.generation += 1;
             if let Some(t) = rt.check_cancel.take() {
                 t.cancel();
             }
@@ -88,7 +89,7 @@ impl Gate for StreamService {
     }
 
     async fn sender_ended(&self, stream: ObjectId) {
-        self.finish_sender(stream).await;
+        self.finish_sender(stream, None).await;
     }
 
     async fn target_event(&self, target: ObjectId, event: RelayTargetEvent) {
@@ -126,11 +127,20 @@ impl Gate for StreamService {
 }
 
 impl StreamService {
+    /// The generation of the sender now, to be handed to `finish_sender` later.
+    pub(super) fn generation(&self, id: ObjectId) -> u64 {
+        self.rt().get(&id).map_or(0, |r| r.generation)
+    }
+
     /// After a sender is gone for good: state `ended` and every enabled target waits.
-    pub(super) async fn finish_sender(&self, id: ObjectId) {
+    pub(super) async fn finish_sender(&self, id: ObjectId, seen: Option<u64>) {
         {
             let mut guard = self.rt();
             let Some(rt) = guard.get_mut(&id) else { return };
+            // A sender accepted since `seen` was read is not the one that was stopped.
+            if seen.is_some_and(|g| g != rt.generation) {
+                return;
+            }
             if rt.apply(StreamEvent::Ended) == Ok(StreamState::Ended) {
                 for t in rt.targets.values_mut() {
                     t.state = next_target(t.state, TargetEvent::StreamEnded);

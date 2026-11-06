@@ -46,10 +46,10 @@ impl MessageReader {
                 return Err(WireError::Limit);
             }
             // Commands are parsed by recursion later: refuse deep nesting before that.
-            let body: &[u8] = if msg.type_id == 17 {
-                msg.data.get(1..).unwrap_or(&[])
-            } else {
-                &msg.data
+            // Type 17 is read like rml_rtmp does: AMF0 behind a leading zero byte, if there is one.
+            let body: &[u8] = match (msg.type_id, msg.data.first()) {
+                (17, Some(0)) => &msg.data[1..],
+                _ => &msg.data,
             };
             if matches!(msg.type_id, 17 | 20) && !super::amf::is_shallow(body) {
                 return Err(WireError::Limit);
@@ -119,5 +119,39 @@ mod tests {
         cmd.extend_from_slice(b"ping");
         assert_eq!(r.feed(&chunks(20, cmd)).unwrap().len(), 1);
         assert_eq!(r.feed(&chunks(9, vec![0x17; 100_000])).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn type_17_is_read_the_way_rml_reads_it_and_the_depth_limit_holds_for_both_forms() {
+        use crate::wire::amf::MAX_DEPTH;
+        let nest =
+            |n: usize| -> Vec<u8> { (0..n).flat_map(|_| [0x0a, 0, 0, 0, 1]).chain([5]).collect() };
+        let with_zero = |n: usize| [vec![0u8], nest(n)].concat();
+        let ok = |t: u8, d: Vec<u8>| {
+            MessageReader::new(Limits::default())
+                .feed(&chunks(t, d))
+                .is_ok()
+        };
+        for t in [17u8, 20] {
+            assert!(
+                ok(t, nest(MAX_DEPTH)),
+                "type {t} at the limit without a prefix"
+            );
+        }
+        assert!(
+            ok(17, with_zero(MAX_DEPTH)),
+            "17 at the limit behind a zero byte"
+        );
+        assert!(
+            !ok(17, with_zero(MAX_DEPTH + 1)),
+            "17 one level too deep behind a zero byte"
+        );
+        assert!(
+            !ok(17, nest(MAX_DEPTH + 1)),
+            "17 one level too deep without a prefix"
+        );
+        assert!(!ok(20, nest(MAX_DEPTH + 1)));
+        // Deep nesting that begins with a marker byte rml would not skip is still refused.
+        assert!(!ok(17, nest(3_000)));
     }
 }

@@ -1,6 +1,5 @@
 //! A raw RTMP publisher for tests: sends exactly the messages it is told to.
 
-use bytes::Bytes;
 use rml_rtmp::chunk_io::{ChunkDeserializer, ChunkSerializer};
 use rml_rtmp::handshake::{Handshake, HandshakeProcessResult, PeerType};
 use rml_rtmp::messages::{MessagePayload, RtmpMessage};
@@ -12,7 +11,7 @@ use tokio::net::TcpStream;
 /// A connection that can send anything.
 pub struct Raw {
     pub io: TcpStream,
-    de: ChunkDeserializer,
+    pub de: ChunkDeserializer,
     pub ser: ChunkSerializer,
     pub stream_id: u32,
 }
@@ -26,7 +25,16 @@ pub enum Answer {
 
 impl Raw {
     pub async fn connect(addr: std::net::SocketAddr) -> Raw {
-        let mut io = TcpStream::connect(addr).await.unwrap();
+        Raw::connect_with(addr, None).await
+    }
+
+    /// With a receive buffer of this size, so that a client that stops reading blocks the relay soon.
+    pub async fn connect_with(addr: std::net::SocketAddr, rcvbuf: Option<u32>) -> Raw {
+        let socket = tokio::net::TcpSocket::new_v4().unwrap();
+        if let Some(n) = rcvbuf {
+            socket.set_recv_buffer_size(n).unwrap();
+        }
+        let mut io = socket.connect(addr).await.unwrap();
         let mut hs = Handshake::new(PeerType::Client);
         io.write_all(&hs.generate_outbound_p0_and_p1().unwrap())
             .await
@@ -164,33 +172,6 @@ impl Raw {
             }
         }
         Answer::Refused("closed".into())
-    }
-
-    /// Announce a chunk size and use it.
-    pub async fn set_chunk_size(&mut self, n: u32) {
-        let p = self
-            .ser
-            .set_max_chunk_size(n, RtmpTimestamp::new(0))
-            .unwrap();
-        self.io.write_all(&p.bytes).await.unwrap();
-    }
-
-    /// Send one message of any type on the publishing stream.
-    pub async fn send(&mut self, type_id: u8, ts: u32, data: &[u8]) {
-        let p = MessagePayload {
-            timestamp: RtmpTimestamp::new(ts),
-            type_id,
-            message_stream_id: self.stream_id,
-            data: Bytes::copy_from_slice(data),
-        };
-        self.write_payload(&p).await;
-    }
-
-    pub async fn video(&mut self, ts: u32, data: &[u8]) {
-        self.send(9, ts, data).await;
-    }
-    pub async fn audio(&mut self, ts: u32, data: &[u8]) {
-        self.send(8, ts, data).await;
     }
 }
 

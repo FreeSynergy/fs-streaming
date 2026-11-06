@@ -43,12 +43,16 @@ impl Relay for RtmpRelay {
                 .map(|a| a.map(|s| s.ip()).collect())
                 .unwrap_or_default(),
         };
-        ips.iter().any(|ip| match bind.ip() {
+        let bind = canonical(bind.ip());
+        ips.into_iter().map(canonical).any(|ip| match bind {
+            // A wildcard bind is reached through any address of this machine.
             b if b.is_unspecified() => {
-                ip.is_unspecified() || std::net::UdpSocket::bind((*ip, 0)).is_ok()
+                ip.is_unspecified() || std::net::UdpSocket::bind((ip, 0)).is_ok()
             }
+            // Connecting to the unspecified address means connecting to this machine.
+            b if ip.is_unspecified() => b.is_loopback(),
             b if b.is_loopback() => ip.is_loopback(),
-            b => *ip == b,
+            b => ip == b,
         })
     }
 
@@ -91,5 +95,13 @@ impl Relay for RtmpRelay {
 
     async fn forget(&self, stream: ObjectId) {
         self.stop_sender(stream).await;
+    }
+}
+
+/// An IPv4 address written as an IPv6 one counts as the IPv4 address.
+fn canonical(ip: IpAddr) -> IpAddr {
+    match ip {
+        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or(IpAddr::V6(v6), IpAddr::V4),
+        v4 @ IpAddr::V4(_) => v4,
     }
 }

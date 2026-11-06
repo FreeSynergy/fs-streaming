@@ -93,8 +93,9 @@ impl Streams for StreamService {
             row.key_hash = keys::hash(key.expose());
             self.repo.put(&row).await?;
         }
+        let seen = self.generation(id);
         relay.stop_sender(id).await;
-        self.finish_sender(id).await;
+        self.finish_sender(id, Some(seen)).await;
         Ok(key)
     }
 
@@ -129,8 +130,9 @@ impl Streams for StreamService {
     async fn stop(&self, id: ObjectId) -> Result<Stream> {
         let row = self.row(id).await?;
         self.cancel_check(id);
+        let seen = self.generation(id);
         self.relay()?.stop_sender(id).await;
-        self.finish_sender(id).await;
+        self.finish_sender(id, Some(seen)).await;
         self.finish_check(id).await;
         Ok(self.stream_view(&row))
     }

@@ -105,3 +105,58 @@ pub async fn is_closed(raw: &mut Raw) -> bool {
         }
     }
 }
+
+impl Raw {
+    /// The next message of any type from the relay.
+    pub async fn next_message(&mut self) -> Option<MessagePayload> {
+        use tokio::io::AsyncReadExt;
+        let mut buf = [0u8; 4096];
+        let mut feed: Vec<u8> = Vec::new();
+        loop {
+            if let Some(p) = self
+                .de
+                .get_next_message(&std::mem::take(&mut feed))
+                .unwrap()
+            {
+                return Some(p);
+            }
+            let n = tokio::time::timeout(Duration::from_secs(10), self.io.read(&mut buf))
+                .await
+                .ok()?
+                .ok()?;
+            if n == 0 {
+                return None;
+            }
+            feed.extend_from_slice(&buf[..n]);
+        }
+    }
+}
+
+impl Raw {
+    /// Announce a chunk size and use it.
+    pub async fn set_chunk_size(&mut self, n: u32) {
+        let p = self
+            .ser
+            .set_max_chunk_size(n, RtmpTimestamp::new(0))
+            .unwrap();
+        self.io.write_all(&p.bytes).await.unwrap();
+    }
+
+    /// Send one message of any type on the publishing stream.
+    pub async fn send(&mut self, type_id: u8, ts: u32, data: &[u8]) {
+        let p = MessagePayload {
+            timestamp: RtmpTimestamp::new(ts),
+            type_id,
+            message_stream_id: self.stream_id,
+            data: Bytes::copy_from_slice(data),
+        };
+        self.write_payload(&p).await;
+    }
+
+    pub async fn video(&mut self, ts: u32, data: &[u8]) {
+        self.send(9, ts, data).await;
+    }
+    pub async fn audio(&mut self, ts: u32, data: &[u8]) {
+        self.send(8, ts, data).await;
+    }
+}
