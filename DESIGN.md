@@ -4,7 +4,19 @@ Stage 1 of the design: **forward and record, no decoding.** No GUI, no capnp ser
 
 ## State
 
-Version 0.1.0, being built. The State table is filled in as parts are finished.
+Version 0.1.0. Stage 1 of the design; no capnp server, no GUI. **Tested only on loopback with `ffmpeg`, never against a real platform.**
+
+| Area | State |
+|---|---|
+| Streams, targets, keys as secrets, state machines | done |
+| RTMP ingest, one sender per stream, `interrupted` | done; plain RTMP, stays on loopback by default |
+| Forwarding to RTMP and RTMPS targets, no decoding, enhanced RTMP passes through | done |
+| `check` | done; can only know an explicit refusal |
+| FLV recording through `RecordingSink`, `FolderSink` | done; handing over to fs-files not built |
+| Everything else in the contract's root comment | not built, reported unsupported |
+| Tests | 94, real sockets, `ffmpeg` and `ffprobe` as test tools |
+
+Checked by independent reviewers over several rounds before the tag.
 
 ## Decisions (the owner may change them; all provisional)
 
@@ -40,6 +52,10 @@ Pattern Strategy: port `RecordingSink`, `create(info) -> writer`, `finish`. `Fol
 
 ### Promises not used yet
 `error` is entered only when the relay cannot listen, and `Stream.note` says why; other problems are per target or in `recordingProblem`. `recording.start` reports unsupported when no sink is configured.
+
+### Open points
+* Acknowledgements are decided before a read is parsed: a sender that sends a window plus a whole window in one read and then waits gets no acknowledgement and is closed at 30 s.
+* A raw acknowledgement on chunk stream 2 between two ping replies can desynchronise a sender's parser. Neither is known to be sent by ffmpeg or OBS.
 
 ### Not built
 Everything listed in the contract's root comment. `Status` is live only, nothing of it is stored.
