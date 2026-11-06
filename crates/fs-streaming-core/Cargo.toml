@@ -8,14 +8,18 @@ rust-version.workspace = true
 
 [dependencies]
 fs-store = { git = "https://github.com/FreeSynergy/fs-store", tag = "v0.3.0" }
+# The contract and the provider rule (ADR 0045).
 fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.29.0" }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 thiserror = "2"
 async-trait = "0.1"
-tokio = { version = "1", features = ["sync"] }
+tokio = { version = "1", features = ["sync", "rt"] }
 sha2 = "0.10"
+subtle = "2"
 getrandom = "0.3"
+tracing = "0.1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
