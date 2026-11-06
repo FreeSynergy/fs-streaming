@@ -7,9 +7,9 @@ use std::sync::{Arc, Mutex};
 
 use fs_streaming_core::{ObjectId, TargetSpec, TargetUrl};
 
+use crate::egress::{TargetCtx, run};
 use crate::fanout::{Branch, Hub};
 use crate::relay::Shared;
-use crate::target::{TargetCtx, run};
 use crate::task::Task;
 
 /// A running (or finished) target worker.

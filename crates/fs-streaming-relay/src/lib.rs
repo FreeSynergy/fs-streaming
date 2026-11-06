@@ -13,6 +13,7 @@
 )]
 
 mod config;
+mod egress;
 mod error;
 mod fanout;
 mod frame;
@@ -20,7 +21,6 @@ mod ingest;
 mod live;
 mod record;
 mod relay;
-mod target;
 mod task;
 mod wire;
 
