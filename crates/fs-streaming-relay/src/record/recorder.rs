@@ -35,11 +35,16 @@ impl Recorder {
     }
 
     /// Stop: write what is queued, close the file, report it.
-    pub async fn finish(self) {
+    pub async fn finish(self, limit: std::time::Duration) {
         self.hub.remove(&self.branch);
         self.branch.close();
-        // The task ends itself once the queue is drained; a stuck sink is cut off after a while.
-        let _ = tokio::time::timeout(std::time::Duration::from_secs(10), self.task.join()).await;
+        // The task ends itself once the queue is drained; a stuck sink is cut off after `limit`.
+        self.task.join_for(limit).await;
+    }
+
+    /// The recording ended on its own (the sink failed).
+    pub fn is_finished(&self) -> bool {
+        self.task.is_finished()
     }
 }
 

@@ -27,6 +27,14 @@ pub struct Limits {
     pub connect_timeout: Duration,
     /// Time allowed for an answer to a command.
     pub answer_timeout: Duration,
+    /// Largest command message (AMF) accepted; nested values are parsed recursively.
+    pub max_amf: usize,
+    /// Connections accepted at once.
+    pub max_connections: usize,
+    /// Time from connecting to a accepted `publish`.
+    pub publish_deadline: Duration,
+    /// Time a closing recording may take before it is cut off.
+    pub recorder_finish: Duration,
 }
 
 impl Default for Limits {
@@ -39,6 +47,10 @@ impl Default for Limits {
             write_stall: Duration::from_secs(60),
             connect_timeout: Duration::from_secs(10),
             answer_timeout: Duration::from_secs(10),
+            max_amf: 8 * 1024,
+            max_connections: 64,
+            publish_deadline: Duration::from_secs(10),
+            recorder_finish: Duration::from_secs(10),
         }
     }
 }
@@ -55,6 +67,7 @@ pub struct RelayConfig {
     pub(crate) record_queue_bytes: usize,
     pub(crate) sink: Option<Arc<dyn RecordingSink>>,
     pub(crate) extra_roots: Vec<Vec<u8>>,
+    pub(crate) advertise: Option<String>,
 }
 
 impl Default for RelayConfig {
@@ -69,6 +82,7 @@ impl Default for RelayConfig {
             record_queue_bytes: 64 * 1024 * 1024,
             sink: None,
             extra_roots: Vec::new(),
+            advertise: None,
         }
     }
 }
@@ -83,6 +97,13 @@ impl RelayConfig {
     #[must_use]
     pub fn bind(mut self, addr: SocketAddr) -> Self {
         self.bind = addr;
+        self
+    }
+    /// The host name or address senders are told to use in the ingest address. Needed when the bind
+    /// address is a wildcard; without it a wildcard bind advertises `localhost`.
+    #[must_use]
+    pub fn advertise(mut self, host: impl Into<String>) -> Self {
+        self.advertise = Some(host.into());
         self
     }
     /// Limits against slow, silent or hostile peers.

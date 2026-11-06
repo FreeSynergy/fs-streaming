@@ -59,7 +59,14 @@ impl Client {
         o.insert("tcUrl".to_string(), text(tc_url));
         self.command("connect", 1.0, Amf0Value::Object(o), vec![], 0)
             .await?;
-        Ok(matches!(self.reply(true).await?, Reply::Result(_)))
+        loop {
+            match self.reply(true).await? {
+                Reply::Result(_) => return Ok(true),
+                Reply::Error | Reply::Status { error: true, .. } => return Ok(false),
+                // A status that is not an error is news, not an answer.
+                Reply::Status { .. } => {}
+            }
+        }
     }
 
     /// `createStream` and `publish`. Sends no media.
@@ -67,12 +74,20 @@ impl Client {
     pub async fn publish(&mut self, key: &str) -> Result<PublishOutcome, WireError> {
         self.command("createStream", 2.0, Amf0Value::Null, vec![], 0)
             .await?;
-        match self.reply(true).await? {
-            Reply::Result(args) => match args.into_iter().find_map(Amf0Value::get_number) {
-                Some(n) if (1.0..1e9).contains(&n) => self.stream_id = n as u32,
-                _ => return Err(WireError::Protocol),
-            },
-            _ => return Ok(PublishOutcome::Refused),
+        loop {
+            match self.reply(true).await? {
+                Reply::Result(args) => {
+                    match args.into_iter().find_map(Amf0Value::get_number) {
+                        Some(n) if (1.0..1e9).contains(&n) => self.stream_id = n as u32,
+                        _ => return Err(WireError::Protocol),
+                    }
+                    break;
+                }
+                Reply::Error | Reply::Status { error: true, .. } => {
+                    return Ok(PublishOutcome::Refused);
+                }
+                Reply::Status { .. } => {}
+            }
         }
         let args = vec![
             Amf0Value::Utf8String(key.into()),
@@ -155,7 +170,10 @@ impl Client {
             .into_message_payload(RtmpTimestamp::new(0), stream)
             .map_err(|_| WireError::Protocol)?;
         self.link.queue(&p)?;
-        self.link.flush().await
+        let stall = self.limits.write_stall;
+        tokio::time::timeout(stall, self.link.flush())
+            .await
+            .map_err(|_| WireError::Timeout)?
     }
 
     /// The next reply that matters; `results` says whether `_result` counts.

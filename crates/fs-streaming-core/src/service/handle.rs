@@ -79,7 +79,7 @@ impl StreamService {
             name: row.name.clone(),
             state: self.state_of(row.id),
             recording: row.recording,
-            note: None,
+            note: self.rt().get(&row.id).and_then(|r| r.note),
             ingest_url: self.ingest_url(row.id),
         }
     }

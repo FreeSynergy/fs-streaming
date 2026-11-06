@@ -19,7 +19,6 @@ async fn every_capability_named_in_the_contract_is_reported() {
         "stream.check",
         "stream.subscribe",
         "publisher.authorize",
-        "recording.start",
         "restream.add",
     ] {
         assert!(c.is_supported(id), "{id}");
@@ -54,4 +53,11 @@ async fn what_the_contract_leaves_out_is_unsupported_with_a_reason() {
         assert!(!u.reason().is_empty(), "{id} has a reason");
         assert!(!c.is_supported(id));
     }
+}
+
+#[tokio::test]
+async fn recording_is_unsupported_without_a_relay_that_can_record() {
+    let c = caps().await;
+    assert!(!c.is_supported("recording.start"));
+    assert!(!c.why_not("recording.start").unwrap().reason().is_empty());
 }

@@ -88,6 +88,10 @@ pub struct RelayStatus {
 pub trait Relay: Send + Sync {
     /// The address senders connect to, without the stream id and the key.
     fn ingest_base(&self) -> String;
+    /// Whether recordings can be written at all (a sink is configured).
+    fn can_record(&self) -> bool;
+    /// Whether `host:port` is this relay's own address, also through a wildcard bind.
+    async fn is_own_address(&self, host: &str, port: u16) -> bool;
     /// End the sender of a stream and everything that follows from it; cancel a check.
     async fn stop_sender(&self, stream: ObjectId);
     /// Add or change a target of a live stream. A new key is used from the next connection on.
@@ -109,6 +113,8 @@ pub trait Relay: Send + Sync {
 pub trait Gate: Send + Sync {
     /// Check a sender's key. A wrong key and an unknown stream both give `None`.
     async fn authorize(&self, stream: ObjectId, key: &str) -> Option<IngestGrant>;
+    /// The relay could not listen: streams are in `error`.
+    async fn listen_failed(&self);
     /// A sender was accepted.
     async fn sender_connected(&self, stream: ObjectId);
     /// The sender dropped; the stream waits.

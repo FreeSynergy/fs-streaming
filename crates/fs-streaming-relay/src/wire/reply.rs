@@ -25,7 +25,9 @@ pub fn parse(m: &MessagePayload) -> Option<Reply> {
         command_name,
         additional_arguments,
         ..
-    } = m.to_rtmp_message().ok()?
+    } = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| m.to_rtmp_message()))
+        .ok()?
+        .ok()?
     else {
         return None;
     };

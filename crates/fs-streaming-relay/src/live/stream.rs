@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use fs_streaming_core::{IngestGrant, ObjectId};
+use fs_streaming_core::ObjectId;
 use tokio::sync::Mutex;
 
 use super::worker::Worker;
@@ -15,6 +15,15 @@ use crate::fanout::Hub;
 use crate::record::Recorder;
 use crate::relay::Shared;
 use crate::task::{CancelToken, Task};
+
+/// Why a sender was not attached.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Attach {
+    /// The stream ended just now; try again with a fresh one.
+    Ended,
+    /// The key is not valid any more.
+    Refused,
+}
 
 /// A sender's place: the generation and the signal that ends it.
 #[derive(Clone)]
@@ -59,12 +68,19 @@ impl LiveStream {
         })
     }
 
-    /// Accept a sender; the previous one is ended. `None` if this stream just ended.
-    pub async fn attach(&self, grant: &IngestGrant) -> Option<Ticket> {
+    /// Accept a sender; the previous one is ended. The key is checked again under the lock, so a key
+    /// that was rotated after the first check cannot get in.
+    pub async fn attach(&self, key: &str, cancel: CancelToken) -> Result<Ticket, Attach> {
         let mut g = self.inner.lock().await;
         if g.ended {
-            return None;
+            return Err(Attach::Ended);
         }
+        let grant = self
+            .shared
+            .gate
+            .authorize(self.id, key)
+            .await
+            .ok_or(Attach::Refused)?;
         if let Some(old) = g.sender.take() {
             old.cancel.cancel();
         }
@@ -74,8 +90,9 @@ impl LiveStream {
         g.serial += 1;
         let ticket = Ticket {
             serial: g.serial,
-            cancel: CancelToken::default(),
+            cancel,
         };
+        self.hub.new_sender();
         g.sender = Some(ticket.clone());
         self.shared.gate.sender_connected(self.id).await;
         if !g.running {
@@ -88,7 +105,7 @@ impl LiveStream {
                 self.start_recorder(&mut g).await;
             }
         }
-        Some(ticket)
+        Ok(ticket)
     }
 
     /// The sender with this generation is gone. Starts the grace time if it was the current one.
@@ -128,10 +145,12 @@ impl LiveStream {
                 w.stop().await;
             }
             if let Some(r) = g.recorder.take() {
-                r.finish().await;
+                r.finish(self.shared.cfg.limits.recorder_finish).await;
             }
+            // Still under the lock: a sender that arrives meanwhile waits, finds this stream ended and
+            // starts a fresh one, so the core hears "ended" before it hears of the new sender.
+            self.shared.gate.sender_ended(self.id).await;
+            self.shared.remove_live(self).await;
         }
-        self.shared.remove_live(self).await;
-        self.shared.gate.sender_ended(self.id).await;
     }
 }

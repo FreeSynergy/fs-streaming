@@ -4,6 +4,7 @@
 //! limits, and keep every payload as it came. Our own small client replaces `rml_rtmp`'s client
 //! session because that session re-writes metadata and hides the stream id; see `DESIGN.md`.
 
+pub mod amf;
 mod client;
 mod dial;
 mod handshake;

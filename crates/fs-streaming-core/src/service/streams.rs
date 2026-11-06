@@ -137,6 +137,9 @@ impl Streams for StreamService {
 
     async fn set_recording(&self, id: ObjectId, on: bool) -> Result<Stream> {
         let relay = self.relay()?.clone();
+        if on && !relay.can_record() {
+            return crate::unsupported::not_possible("recording.start");
+        }
         let row = {
             let _w = self.repo.lock().await;
             let mut row = self.row(id).await?;

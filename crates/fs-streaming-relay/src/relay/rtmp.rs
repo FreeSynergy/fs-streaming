@@ -26,7 +26,13 @@ pub struct RtmpRelay {
 impl RtmpRelay {
     /// Bind and start accepting senders.
     pub async fn start(gate: Arc<dyn Gate>, cfg: RelayConfig) -> std::io::Result<Arc<Self>> {
-        let listener = TcpListener::bind(cfg.bind).await?;
+        let listener = match TcpListener::bind(cfg.bind).await {
+            Ok(l) => l,
+            Err(e) => {
+                gate.listen_failed().await;
+                return Err(e);
+            }
+        };
         let local = listener.local_addr()?;
         let shared = Shared::new(gate, cfg);
         let accept = Task::spawn(ingest::accept_loop(listener, shared.clone()));

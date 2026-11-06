@@ -138,7 +138,7 @@ async fn a_short_drop_is_interrupted_and_continues_a_long_one_ends() {
     until("frames from both parts", LONG, || async {
         sink.messages()
             .iter()
-            .any(|g| g.type_id == 9 && g.ts == 440)
+            .any(|g| g.type_id == 9 && g.ts >= 480)
             .then_some(())
     })
     .await;
@@ -165,12 +165,25 @@ async fn a_short_drop_is_interrupted_and_continues_a_long_one_ends() {
         "the recording is one file across the interruption"
     );
     let tags = common::flv::tags(&std::fs::read(files[0].path()).unwrap());
-    for ts in [0, 40, 400, 440] {
-        assert!(
-            tags.iter().any(|t| t.0 == 9 && t.1 == ts),
-            "video at {ts} is in the one file"
-        );
-    }
+    // The sender started its timestamps over when it came back; downstream they keep rising.
+    let times: Vec<u32> = tags.iter().map(|t| t.1).collect();
+    assert!(
+        times.windows(2).all(|w| w[0] <= w[1]),
+        "recording timestamps never go back: {times:?}"
+    );
+    assert!(
+        tags.iter().filter(|t| t.0 == 9).count() >= 4,
+        "video from both parts"
+    );
+    assert!(
+        times.last().unwrap() >= &480,
+        "the second part follows the first"
+    );
+    let seen: Vec<u32> = sink.messages().iter().map(|g| g.ts).collect();
+    assert!(
+        seen.windows(2).all(|w| w[0] <= w[1]),
+        "target timestamps never go back: {seen:?}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

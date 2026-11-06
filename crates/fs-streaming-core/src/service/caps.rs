@@ -65,10 +65,14 @@ const LEFT_OUT: [(&str, &str); 14] = [
 const NO_MEDIA: [&str; 3] = ["capture", "codec.decode", "codec.encode"];
 
 impl StreamService {
-    pub(super) fn support() -> Capabilities {
+    pub(super) fn support(can_record: bool) -> Capabilities {
         let mut c = Capabilities::new("fs-streaming-core");
         for id in SUPPORTED {
-            c.supported(id);
+            if id == "recording.start" && !can_record {
+                c.unsupported(id, "no recording sink is configured");
+            } else {
+                c.supported(id);
+            }
         }
         for (id, why) in LEFT_OUT {
             c.unsupported(id, why);
@@ -86,7 +90,7 @@ impl StreamService {
 #[async_trait]
 impl Streaming for StreamService {
     fn capabilities(&self) -> Capabilities {
-        Self::support()
+        Self::support(self.relay().is_ok_and(|r| r.can_record()))
     }
 
     async fn subscribe(&self, listener: Arc<dyn StatusListener>) -> Result<Subscription> {

@@ -126,11 +126,15 @@ async fn attempt(ctx: &TargetCtx) -> End {
     send_loop(ctx, &mut client).await
 }
 
+/// Media must have flowed this long for a loss to start the pauses over.
+const STABLE: std::time::Duration = std::time::Duration::from_secs(10);
+
 async fn send_loop(ctx: &TargetCtx, client: &mut Client) -> End {
+    let since = std::time::Instant::now();
     let stall = ctx.dialer.limits().write_stall;
     let gone = |note| End::Lost {
         note,
-        reached: true,
+        reached: since.elapsed() >= STABLE,
     };
     loop {
         tokio::select! {

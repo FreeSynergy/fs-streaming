@@ -6,4 +6,4 @@ mod ops;
 mod stream;
 mod worker;
 
-pub use stream::{LiveStream, Ticket};
+pub use stream::{Attach, LiveStream};

@@ -23,6 +23,8 @@ pub enum StreamEvent {
     CheckEnded(StreamState),
     /// `delete` is asked for.
     DeleteAsked,
+    /// The relay could not listen.
+    Failed,
 }
 
 /// Why a state refuses an operation.
@@ -66,6 +68,7 @@ pub fn next_stream(state: StreamState, event: StreamEvent) -> Result<StreamState
         (Live | Interrupted | Checking, StreamEvent::DeleteAsked) => {
             return Err(Refusal::StreamBusy);
         }
+        (Idle | Ended, StreamEvent::Failed) => Error,
         (s, _) => s,
     })
 }

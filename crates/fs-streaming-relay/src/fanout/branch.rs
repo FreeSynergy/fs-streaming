@@ -32,6 +32,7 @@ struct Inner {
     open: bool,
     overflowed: bool,
     closed: bool,
+    last_ts: u32,
 }
 
 /// One queue with its gate.
@@ -74,8 +75,12 @@ impl Branch {
                 g.open = true;
                 g.overflowed = false;
                 Self::clear(&mut g, &self.stats, true);
+                // Resent headers must not take time backwards.
+                let floor = g.last_ts;
                 for h in heads.in_order() {
-                    Self::push(&mut g, h.clone());
+                    let mut h = (**h).clone();
+                    h.timestamp = h.timestamp.max(floor);
+                    Self::push(&mut g, Arc::new(h));
                 }
                 Self::push(&mut g, frame.clone());
                 drop(g);
@@ -97,6 +102,7 @@ impl Branch {
     }
 
     fn push(g: &mut Inner, f: Arc<Frame>) {
+        g.last_ts = g.last_ts.max(f.timestamp);
         g.bytes += f.payload.len();
         g.queue.push_back(f);
     }
@@ -133,6 +139,7 @@ impl Branch {
         Self::clear(&mut g, &self.stats, false);
         g.open = false;
         g.overflowed = false;
+        g.last_ts = 0;
     }
 
     /// No more frames; what is queued can still be read.

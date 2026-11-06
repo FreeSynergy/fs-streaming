@@ -45,8 +45,13 @@ impl LiveStream {
         }
         match (on, g.recorder.take()) {
             (true, None) => self.start_recorder(&mut g).await,
+            (true, Some(r)) if r.is_finished() => {
+                // The sink failed earlier: a new recorder starts, and the problem stays until it works.
+                r.finish(self.shared.cfg.limits.recorder_finish).await;
+                self.start_recorder(&mut g).await;
+            }
             (true, Some(r)) => g.recorder = Some(r),
-            (false, Some(r)) => r.finish().await,
+            (false, Some(r)) => r.finish(self.shared.cfg.limits.recorder_finish).await,
             (false, None) => {}
         }
     }

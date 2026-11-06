@@ -62,6 +62,31 @@ impl Repo {
         }
     }
 
+    /// The row of `id` and the row to do the same work on: for an unknown id a stored row stands in,
+    /// so a wrong key and an unknown stream cost the same reads.
+    pub async fn get_or_decoy(
+        &self,
+        id: ObjectId,
+    ) -> Result<(Option<StreamRow>, Option<StreamRow>)> {
+        let ids = self.ids().await?;
+        if ids.contains(&id) {
+            let row = self.read_row(id).await?;
+            return Ok((row.clone(), row));
+        }
+        let decoy = match ids.first() {
+            Some(first) => self.read_row(*first).await?,
+            None => None,
+        };
+        Ok((None, decoy))
+    }
+
+    async fn read_row(&self, id: ObjectId) -> Result<Option<StreamRow>> {
+        match self.store.read_unlogged(id).await? {
+            Some(obj) => Ok(Some(serde_json::from_value(obj.content)?)),
+            None => Ok(None),
+        }
+    }
+
     /// All stream rows, in creation order.
     pub async fn all(&self) -> Result<Vec<StreamRow>> {
         let mut out = Vec::new();

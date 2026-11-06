@@ -15,21 +15,39 @@ use crate::traits::{Event, Gate, IngestGrant, RecordingEvent, RelayTargetEvent};
 #[async_trait]
 impl Gate for StreamService {
     async fn authorize(&self, stream: ObjectId, key: &str) -> Option<IngestGrant> {
-        let row = self.repo.get(stream).await.ok().flatten();
-        let ok = keys::matches(row.as_ref().map(|r| r.key_hash.as_str()), key);
-        let row = row.filter(|_| ok)?;
+        let (real, work) = self.repo.get_or_decoy(stream).await.ok()?;
+        let ok = keys::matches(real.as_ref().map(|r| r.key_hash.as_str()), key);
+        // The same work for a wrong key and an unknown stream: the grant is built either way.
+        let row = work?;
         let targets = row
             .targets
             .iter()
             .filter(|t| t.enabled)
             .filter_map(|t| Self::spec(t).ok())
             .collect();
-        Some(IngestGrant {
+        let grant = IngestGrant {
             stream,
             name: row.name.clone(),
             recording: row.recording,
             targets,
-        })
+        };
+        (ok && real.is_some()).then_some(grant)
+    }
+
+    async fn listen_failed(&self) {
+        let Ok(rows) = self.repo.all().await else {
+            return;
+        };
+        for row in rows {
+            {
+                let mut guard = self.rt();
+                let rt = guard.entry(row.id).or_default();
+                if rt.apply(StreamEvent::Failed) == Ok(StreamState::Error) {
+                    rt.note = Some(crate::note::Note::CannotListen);
+                }
+            }
+            self.emit_all(row.id).await;
+        }
     }
 
     async fn sender_connected(&self, stream: ObjectId) {
@@ -44,7 +62,7 @@ impl Gate for StreamService {
                 t.cancel();
             }
             let _ = rt.apply(StreamEvent::SenderConnected);
-            rt.problem = None;
+            rt.note = None;
             if !was_live {
                 for t in row.targets.iter().filter(|t| t.enabled) {
                     let cur = rt

@@ -24,11 +24,19 @@ impl Task {
         }
     }
 
-    /// Wait until it ends by itself.
-    pub async fn join(mut self) {
-        if let Some(h) = self.0.take() {
-            let _ = h.await;
+    /// Wait for it to end by itself for up to `limit`; then cut it off and wait until it is gone.
+    pub async fn join_for(mut self, limit: std::time::Duration) {
+        if let Some(mut h) = self.0.take() {
+            if tokio::time::timeout(limit, &mut h).await.is_err() {
+                h.abort();
+                let _ = h.await;
+            }
         }
+    }
+
+    /// The task has ended.
+    pub fn is_finished(&self) -> bool {
+        self.0.as_ref().is_none_or(JoinHandle::is_finished)
     }
 
     /// Let it run on its own (used when a task ends itself).

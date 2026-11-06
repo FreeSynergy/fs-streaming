@@ -34,6 +34,8 @@ pub enum Note {
     RecordingFailed,
     /// The recording could not keep up.
     RecordingTooSlow,
+    /// The relay could not listen on its address.
+    CannotListen,
 }
 
 impl Note {
@@ -56,6 +58,9 @@ impl Note {
             Self::KeyAccepted => "The far end accepted the key; a server may still refuse later.",
             Self::Cancelled => "The check was cancelled.",
             Self::RecordingFailed => "The recording could not be written; the stream goes on.",
+            Self::CannotListen => {
+                "The relay could not listen on its address, so nothing can be sent to it."
+            }
             Self::RecordingTooSlow => {
                 "The recording could not keep up and was stopped; the stream goes on."
             }

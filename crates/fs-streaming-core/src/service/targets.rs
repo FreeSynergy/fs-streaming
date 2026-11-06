@@ -83,6 +83,7 @@ impl StreamService {
     ) -> Result<Target> {
         let url = TargetUrl::parse(url)?;
         let key = clean_key(key)?;
+        self.refuse_own(&url).await?;
         let name = name.trim();
         if name.is_empty() || name.chars().any(char::is_control) {
             return Err(Error::InvalidInput("the name must not be empty"));
@@ -105,6 +106,15 @@ impl StreamService {
         Ok(view)
     }
 
+    async fn refuse_own(&self, url: &TargetUrl) -> Result<()> {
+        match self.relay() {
+            Ok(r) if r.is_own_address(url.host(), url.port()).await => {
+                Err(Error::InvalidInput("the address is this relay's own"))
+            }
+            _ => Ok(()),
+        }
+    }
+
     async fn find(&self, id: ObjectId) -> Result<(StreamRow, usize)> {
         self.repo
             .find_target(id)
@@ -119,6 +129,7 @@ impl StreamService {
         url: &str,
     ) -> Result<Target> {
         let new = TargetUrl::parse(url)?;
+        self.refuse_own(&new).await?;
         let _w = self.repo.lock().await;
         let (mut row, i) = self.find(id).await?;
         if self.target_view(row.id, &row.targets[i]).state == TargetState::Sending {

@@ -65,8 +65,11 @@ fn video_flags(p: &[u8]) -> (bool, bool) {
         return (false, false);
     };
     if b0 & 0x80 != 0 {
-        let header = matches!(b0 & 0x0f, 0);
-        return (((b0 >> 4) & 7) == 1 && !header, header);
+        // Enhanced RTMP: the packet type is the low nibble. Only coded frames can be a keyframe;
+        // sequence end and metadata are neither a keyframe nor a codec header.
+        let packet = b0 & 0x0f;
+        let key = (b0 >> 4) & 7 == 1 && matches!(packet, 1 | 3);
+        return (key, matches!(packet, 0 | 5));
     }
     let header = matches!(b0 & 0x0f, 7 | 12) && p.get(1) == Some(&0);
     ((b0 >> 4) == 1 && !header, header)
@@ -126,6 +129,11 @@ mod tests {
         let h = f(Kind::Video, &[0x90, b'a', b'v', b'0', b'1', 9]);
         assert!(h.header && !h.keyframe);
         assert!(!f(Kind::Video, &[0xA1, b'a', b'v', b'0', b'1']).keyframe);
+        // Sequence end and metadata of a keyframe type are not keyframes.
+        for packet in [0x92u8, 0x94] {
+            let x = f(Kind::Video, &[packet, b'a', b'v', b'0', b'1']);
+            assert!(!x.keyframe && !x.header, "{packet:#x}");
+        }
     }
 
     #[test]

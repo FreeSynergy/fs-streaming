@@ -29,6 +29,9 @@ pub enum UrlProblem {
     /// A query or a fragment.
     #[error("the address must not contain a query or a fragment")]
     QueryOrFragment,
+    /// Longer than 2 KiB.
+    #[error("the address is too long")]
+    TooLong,
 }
 
 /// A checked target address.
@@ -47,7 +50,13 @@ impl TargetUrl {
     }
 
     fn parse_inner(text: &str) -> std::result::Result<Self, UrlProblem> {
-        if text.chars().any(|c| c.is_control() || c.is_whitespace()) {
+        if text.len() > 2048 {
+            return Err(UrlProblem::TooLong);
+        }
+        if text
+            .chars()
+            .any(|c| c.is_control() || c.is_whitespace() || c == '\\')
+        {
             return Err(UrlProblem::Host);
         }
         let lower = text.to_ascii_lowercase();
@@ -66,7 +75,7 @@ impl TargetUrl {
             return Err(UrlProblem::User);
         }
         let path = path.trim_matches('/');
-        if path.is_empty() || path.contains("//") {
+        if path.is_empty() || path.contains("//") || path.contains('%') {
             return Err(UrlProblem::Path);
         }
         let (host, port) = split_host_port(authority)?;
@@ -106,17 +115,24 @@ impl TargetUrl {
 fn split_host_port(authority: &str) -> std::result::Result<(String, Option<u16>), UrlProblem> {
     let (host, port) = if let Some(inner) = authority.strip_prefix('[') {
         let (h, after) = inner.split_once(']').ok_or(UrlProblem::Host)?;
-        (h, after.strip_prefix(':'))
+        if h.parse::<std::net::Ipv6Addr>().is_err() {
+            return Err(UrlProblem::Host);
+        }
+        match after {
+            "" => (h, None),
+            a => (h, Some(a.strip_prefix(':').ok_or(UrlProblem::Host)?)),
+        }
     } else {
         match authority.split_once(':') {
             Some((h, p)) => (h, Some(p)),
             None => (authority, None),
         }
     };
+    let bracketed = authority.starts_with('[');
     let ok = !host.is_empty()
-        && host
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ':'));
+        && host.chars().all(|c| {
+            c.is_ascii_alphanumeric() || matches!(c, '.' | '-') || (bracketed && c == ':')
+        });
     if !ok {
         return Err(UrlProblem::Host);
     }

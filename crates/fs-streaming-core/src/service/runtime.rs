@@ -27,6 +27,8 @@ pub(super) struct StreamRt {
     /// Where a check came from.
     pub before_check: StreamState,
     pub problem: Option<Note>,
+    /// Why the stream is in `error`.
+    pub note: Option<Note>,
     /// Ends the running check.
     pub check_cancel: Option<CancelToken>,
     pub targets: HashMap<ObjectId, TargetRt>,
@@ -39,6 +41,7 @@ impl Default for StreamRt {
             since: chrono::Utc::now(),
             before_check: StreamState::Idle,
             problem: None,
+            note: None,
             check_cancel: None,
             targets: HashMap::new(),
         }
