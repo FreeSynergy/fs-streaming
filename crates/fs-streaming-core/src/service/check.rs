@@ -10,6 +10,7 @@ use crate::cancel::CancelToken;
 use crate::error::{Error, Result};
 use crate::model::{CheckResult, StreamState};
 use crate::state::StreamEvent;
+use crate::traits::Event;
 
 impl StreamService {
     pub(super) async fn check_inner(&self, stream: ObjectId) -> Result<Vec<CheckResult>> {
@@ -56,6 +57,18 @@ impl StreamService {
     pub(super) fn cancel_check(&self, stream: ObjectId) {
         if let Some(t) = self.rt().get(&stream).and_then(|r| r.check_cancel.clone()) {
             t.cancel();
+        }
+    }
+}
+
+impl StreamService {
+    /// Push the current picture of a stream and its targets into the feed.
+    pub(super) async fn emit_all(&self, id: ObjectId) {
+        if let Ok(Some(row)) = self.repo.get(id).await {
+            self.emit(Event::Stream(self.stream_view(&row)));
+            for t in &row.targets {
+                self.emit(Event::Target(self.target_view(id, t)));
+            }
         }
     }
 }

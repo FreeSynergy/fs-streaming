@@ -23,6 +23,12 @@ pub enum Mode {
     Stall,
     /// Accept TCP and hang up at once.
     HangUp,
+    /// Accept the publish, then close the connection.
+    DropAfterPublish,
+    /// Accept the publish, and say no when the first media arrives.
+    RefuseLater,
+    /// Send a harmless `onStatus` before answering `connect`.
+    Chatty,
 }
 
 /// One message received.

@@ -54,16 +54,6 @@ impl StreamService {
             .is_some_and(super::runtime::StreamRt::is_live)
     }
 
-    /// Push the current picture of a stream and its targets into the feed.
-    pub(super) async fn emit_all(&self, id: ObjectId) {
-        if let Ok(Some(row)) = self.repo.get(id).await {
-            self.emit(Event::Stream(self.stream_view(&row)));
-            for t in &row.targets {
-                self.emit(Event::Target(self.target_view(id, t)));
-            }
-        }
-    }
-
     async fn tell_relay(&self, row: &StreamRow, i: usize) -> Result<()> {
         if self.live(row.id) {
             let t = &row.targets[i];

@@ -137,20 +137,32 @@ async fn send_loop(ctx: &TargetCtx, client: &mut Client) -> End {
         reached: since.elapsed() >= STABLE,
     };
     loop {
+        // Reading comes first: a server that said no and hung up must be heard before a write fails.
         tokio::select! {
+            biased;
+            read = client.read_step() => {
+                if let Err(e) = read { return gone(e.note()); }
+                if client.take_error() { return End::Refused(Note::PublishRefused); }
+                if tokio::time::timeout(stall, client.flush()).await.map_or(true, |r| r.is_err()) { return gone(Note::NoAnswer); }
+            }
             frame = ctx.branch.next() => {
                 let Some(frame) = frame else { return End::Done };
                 match tokio::time::timeout(stall, client.send_frame(&frame)).await {
                     Ok(Ok(n)) => { ctx.branch.stats.bytes_out.fetch_add(n, std::sync::atomic::Ordering::Relaxed); }
-                    Ok(Err(e)) => return gone(e.note()),
+                    Ok(Err(e)) => return after_failed_write(client, gone(e.note())).await,
                     Err(_) => return gone(Note::NoAnswer),
                 }
             }
-            read = client.read_step() => {
-                if let Err(e) = read { return gone(e.note()); }
-                if client.take_error() { return gone(Note::ProtocolError); }
-                if tokio::time::timeout(stall, client.flush()).await.map_or(true, |r| r.is_err()) { return gone(Note::NoAnswer); }
-            }
         }
     }
+}
+
+/// A write failed: the far end may have said why just before. An explicit no wins over a loss.
+async fn after_failed_write(client: &mut Client, lost: End) -> End {
+    let heard =
+        tokio::time::timeout(std::time::Duration::from_millis(200), client.read_step()).await;
+    if matches!(heard, Ok(Ok(()))) && client.take_error() {
+        return End::Refused(Note::PublishRefused);
+    }
+    lost
 }

@@ -60,3 +60,33 @@ fn a_key_stays_only_for_the_same_place_and_not_from_rtmps_to_rtmp() {
         "going to rtmps is safer, not worse"
     );
 }
+
+#[test]
+fn brackets_that_are_not_one_exact_ipv6_literal_percent_signs_backslashes_and_size_are_refused() {
+    for bad in [
+        "rtmp://[::1]evil.com/app",
+        "rtmp://[evil.com]/app",
+        "rtmp://[::1/app",
+        "rtmp://[::1]:/app",
+        "rtmp://[::1]x:1935/app",
+        "rtmp://h/a%3Fkey=X",
+        "rtmp://h/a%2e",
+        "rtmp://h\\@evil/app",
+        "rtmp://h/a\\b",
+    ] {
+        assert!(TargetUrl::parse(bad).is_err(), "{bad}");
+    }
+    let long = format!("rtmp://h/{}", "a".repeat(70_000));
+    assert_eq!(problem(&long), UrlProblem::TooLong);
+    assert_eq!(
+        problem(&format!("rtmp://h/{}", "a".repeat(2100))),
+        UrlProblem::TooLong
+    );
+    assert!(TargetUrl::parse(&format!("rtmp://h/{}", "a".repeat(2000))).is_ok());
+    assert_eq!(
+        TargetUrl::parse("rtmp://[::1]:1936/app")
+            .unwrap()
+            .to_string(),
+        "rtmp://[::1]:1936/app"
+    );
+}

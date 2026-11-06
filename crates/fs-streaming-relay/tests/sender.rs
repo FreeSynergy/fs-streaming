@@ -5,22 +5,20 @@ mod common;
 use std::time::Duration;
 
 use common::raw::{Answer, Raw};
+use common::raw_ext::is_closed;
 use common::rig::{Made, Rig, scratch};
 use common::sink::{Mode, Sink};
 use common::wait::{LONG, until};
 use fs_streaming_core::{ObjectId, StreamState, Streams, TargetState};
 use fs_streaming_relay::RelayConfig;
-use tokio::io::AsyncReadExt;
 
 async fn state(rig: &Rig, id: ObjectId) -> StreamState {
     rig.service.get(id).await.unwrap().unwrap().state
 }
 
 async fn becomes(rig: &Rig, id: ObjectId, want: StreamState) {
-    until(&format!("state {want:?}"), LONG, || async {
-        (state(rig, id).await == want).then_some(())
-    })
-    .await;
+    let is = || async { (state(rig, id).await == want).then_some(()) };
+    until(&format!("state {want:?}"), LONG, is).await;
 }
 
 async fn publish(rig: &Rig, made: &Made) -> (Raw, Answer) {
@@ -28,17 +26,6 @@ async fn publish(rig: &Rig, made: &Made) -> (Raw, Answer) {
     let mut raw = Raw::connect(rig.addr).await;
     let a = raw.publish(&app, &name).await;
     (raw, a)
-}
-
-async fn is_closed(raw: &mut Raw) -> bool {
-    let mut b = [0u8; 4096];
-    loop {
-        match tokio::time::timeout(Duration::from_secs(10), raw.io.read(&mut b)).await {
-            Ok(Ok(0) | Err(_)) => return true,
-            Ok(Ok(_)) => {}
-            Err(_) => return false,
-        }
-    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

@@ -11,6 +11,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::watch;
 
 use super::sink::{Got, Mode};
+use super::status::status_packet;
 
 async fn handshake<S: AsyncRead + AsyncWrite + Unpin>(s: &mut S) -> Vec<u8> {
     let mut hs = Handshake::new(PeerType::Server);
@@ -53,7 +54,7 @@ pub async fn serve<S: AsyncRead + AsyncWrite + Unpin>(
     let mut de = ChunkDeserializer::new();
     let mut pending = first;
     let mut buf = vec![0u8; 16 * 1024];
-    let mut stalled = false;
+    let (mut stalled, mut close_after) = (false, false);
     loop {
         while !pending.is_empty() {
             let batch = std::mem::take(&mut pending);
@@ -68,6 +69,10 @@ pub async fn serve<S: AsyncRead + AsyncWrite + Unpin>(
                         request_id,
                         ..
                     }) => {
+                        if mode == Mode::Chatty {
+                            let hello = status_packet("status", "NetConnection.Connect.Chatty", 0);
+                            let _ = s.write_all(&hello).await;
+                        }
                         pending.extend(session.accept_request(request_id).unwrap());
                     }
                     ServerSessionResult::RaisedEvent(
@@ -92,11 +97,15 @@ pub async fn serve<S: AsyncRead + AsyncWrite + Unpin>(
                         } else {
                             pending.extend(session.accept_request(request_id).unwrap());
                             stalled = mode == Mode::Stall;
+                            close_after = mode == Mode::DropAfterPublish;
                         }
                     }
                     _ => {}
                 }
             }
+        }
+        if close_after {
+            return;
         }
         if stalled {
             let _ = rx.wait_for(|v| *v).await;
@@ -120,6 +129,12 @@ pub async fn serve<S: AsyncRead + AsyncWrite + Unpin>(
                     m.data[0], m.data[1], m.data[2], m.data[3],
                 ]) as usize)
                     .unwrap();
+            }
+            if mode == Mode::RefuseLater && matches!(m.type_id, 8 | 9) {
+                let no = status_packet("error", "NetStream.Publish.BadName", 1);
+                let _ = s.write_all(&no).await;
+                // Say no and close: whatever the session would send next does not follow on from it.
+                return;
             }
             if matches!(m.type_id, 8 | 9 | 18) {
                 got.lock().unwrap().push(Got {

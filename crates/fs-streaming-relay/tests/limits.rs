@@ -42,7 +42,6 @@ async fn an_oversized_chunk_size_is_refused() {
     let made = rig.stream("s").await;
     let mut raw = live(&rig, &made).await;
     raw.set_chunk_size(100 * 1024 * 1024).await;
-    raw.headers().await;
     assert!(
         closed_within(&mut raw.io, LONG).await,
         "a chunk size above 16 MiB ends the connection"

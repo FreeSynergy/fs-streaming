@@ -35,6 +35,7 @@ pub struct Rig {
     pub service: Arc<StreamService>,
     pub relay: Arc<RtmpRelay>,
     pub addr: SocketAddr,
+    pub store: Arc<dyn UnloggedObjects>,
 }
 
 /// A stream made through the service.
@@ -71,7 +72,7 @@ impl Rig {
     }
 
     pub async fn with_store(store: Arc<dyn UnloggedObjects>, cfg: RelayConfig) -> Rig {
-        let service = StreamService::new(store);
+        let service = StreamService::new(store.clone());
         let relay = RtmpRelay::start(service.clone(), cfg).await.unwrap();
         assert!(service.attach(relay.clone()));
         let addr = relay.local_addr();
@@ -79,6 +80,7 @@ impl Rig {
             service,
             relay,
             addr,
+            store,
         }
     }
 

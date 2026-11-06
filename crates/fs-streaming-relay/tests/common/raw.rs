@@ -13,8 +13,8 @@ use tokio::net::TcpStream;
 pub struct Raw {
     pub io: TcpStream,
     de: ChunkDeserializer,
-    ser: ChunkSerializer,
-    stream_id: u32,
+    pub ser: ChunkSerializer,
+    pub stream_id: u32,
 }
 
 /// What the far end answered to `publish`.
@@ -53,7 +53,7 @@ impl Raw {
         }
     }
 
-    async fn command(
+    pub async fn command(
         &mut self,
         name: &str,
         tx: f64,
@@ -79,7 +79,7 @@ impl Raw {
     }
 
     /// The next command from the far end, as (name, status code or empty).
-    async fn next_command(&mut self) -> Option<(String, String, Vec<Amf0Value>)> {
+    pub async fn next_command(&mut self) -> Option<(String, String, Vec<Amf0Value>)> {
         let mut buf = [0u8; 4096];
         let mut feed: Vec<u8> = Vec::new();
         loop {
