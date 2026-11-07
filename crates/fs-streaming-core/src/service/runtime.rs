@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 
-use fs_store::{ObjectId, Timestamp};
+use fs_objects::{ObjectId, Timestamp};
 
 use crate::cancel::CancelToken;
 use crate::model::{StreamState, TargetState};

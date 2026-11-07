@@ -3,7 +3,7 @@
 //! Pattern: Command with a guard — the state function refuses while live; the state goes to
 //! `checking` and back to where it came from, also when `stop` or a sender cut the check short.
 
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use super::handle::StreamService;
 use crate::cancel::CancelToken;

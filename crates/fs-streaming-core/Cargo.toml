@@ -7,9 +7,9 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-fs-store = { git = "https://github.com/FreeSynergy/fs-store", tag = "v0.3.0" }
+fs-objects = { git = "https://github.com/FreeSynergy/fs-objects", tag = "v0.5.0" }
 # The contract and the provider rule (ADR 0045).
-fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.29.0" }
+fs-interfaces = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.45.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }

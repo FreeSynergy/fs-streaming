@@ -2,7 +2,7 @@
 //!
 //! Pattern: plain data — `rejected` only on an explicit no, `accepted` only on an explicit yes.
 
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use crate::note::Note;
 

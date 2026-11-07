@@ -11,8 +11,8 @@
 
 use std::sync::Arc;
 
-use fs_store::TursoStore;
-use fs_store::traits::UnloggedObjects;
+use fs_objects::TursoStore;
+use fs_objects::traits::UnloggedObjects;
 use fs_streaming_core::{StreamService, Streams};
 use fs_streaming_relay::{FolderSink, RelayConfig, RtmpRelay};
 

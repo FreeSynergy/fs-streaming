@@ -6,8 +6,8 @@
 
 use std::sync::Arc;
 
-use fs_store::traits::UnloggedObjects;
-use fs_store::{Envelope, ObjectId, StoredObject};
+use fs_objects::traits::UnloggedObjects;
+use fs_objects::{Envelope, ObjectId, StoredObject};
 use tokio::sync::Mutex;
 
 use super::rows::StreamRow;

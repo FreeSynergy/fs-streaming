@@ -5,7 +5,7 @@ use std::sync::Arc;
 use fs_streaming_core::{StreamService, Streaming};
 
 async fn caps() -> fs_interfaces::Capabilities {
-    let store = Arc::new(fs_store::TursoStore::open_in_memory().await.unwrap());
+    let store = Arc::new(fs_objects::TursoStore::open_in_memory().await.unwrap());
     StreamService::new(store).capabilities()
 }
 

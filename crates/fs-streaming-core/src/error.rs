@@ -14,7 +14,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     /// The object store failed.
     #[error("object store: {0}")]
-    Store(#[from] fs_store::Error),
+    Store(#[from] fs_objects::Error),
     /// Stored JSON could not be read or written (no content is quoted).
     #[error("the stored data could not be read or written")]
     Corrupt,

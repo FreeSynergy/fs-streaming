@@ -2,7 +2,7 @@
 //!
 //! Pattern: State (the enum; transitions live in `state::stream`) — plain data otherwise.
 
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use crate::note::Note;
 use crate::secret::Secret;

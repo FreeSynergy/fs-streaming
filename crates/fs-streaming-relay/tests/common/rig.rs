@@ -5,8 +5,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use fs_store::TursoStore;
-use fs_store::traits::UnloggedObjects;
+use fs_objects::TursoStore;
+use fs_objects::traits::UnloggedObjects;
 use fs_streaming_core::{ObjectId, StreamService, Streams};
 use fs_streaming_relay::{FolderSink, RelayConfig, RtmpRelay};
 

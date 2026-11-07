@@ -4,7 +4,7 @@
 //! A wrong key and an unknown stream take the same path and give the same `None`.
 
 use async_trait::async_trait;
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use super::handle::StreamService;
 use crate::keys;

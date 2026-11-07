@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use async_trait::async_trait;
-use fs_store::traits::UnloggedObjects;
-use fs_store::{ObjectId, StoredObject, TursoStore};
+use fs_objects::traits::UnloggedObjects;
+use fs_objects::{ObjectId, StoredObject, TursoStore};
 use fs_streaming_core::{Gate, Repo, StreamRow, StreamService, TargetRow, keys};
 
 /// A real store that counts its reads.
@@ -13,14 +13,14 @@ struct Counting(TursoStore, AtomicUsize);
 
 #[async_trait]
 impl UnloggedObjects for Counting {
-    async fn put_unlogged(&self, o: StoredObject) -> fs_store::Result<()> {
+    async fn put_unlogged(&self, o: StoredObject) -> fs_objects::Result<()> {
         self.0.put_unlogged(o).await
     }
-    async fn read_unlogged(&self, id: ObjectId) -> fs_store::Result<Option<StoredObject>> {
+    async fn read_unlogged(&self, id: ObjectId) -> fs_objects::Result<Option<StoredObject>> {
         self.1.fetch_add(1, Ordering::SeqCst);
         self.0.read_unlogged(id).await
     }
-    async fn delete_unlogged(&self, id: ObjectId) -> fs_store::Result<()> {
+    async fn delete_unlogged(&self, id: ObjectId) -> fs_objects::Result<()> {
         self.0.delete_unlogged(id).await
     }
 }

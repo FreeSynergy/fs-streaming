@@ -4,7 +4,7 @@
 //! method; one it does not override answers an explicit `Unsupported` (ADR 0045). Reads are required.
 
 use async_trait::async_trait;
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use crate::error::Result;
 use crate::model::{CheckResult, Created, Cursor, Page, Status, Stream, Target};

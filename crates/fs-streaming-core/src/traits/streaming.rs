@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use fs_interfaces::Capabilities;
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 use tokio::task::JoinHandle;
 
 use crate::error::Result;

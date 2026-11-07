@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 use serde::{Deserialize, Serialize};
 
 use crate::secret::Secret;

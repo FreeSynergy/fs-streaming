@@ -4,7 +4,7 @@
 //! with and without the trait agree. Refusals come from the state functions, not from here.
 
 use async_trait::async_trait;
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use super::handle::StreamService;
 use crate::error::{Error, Result};

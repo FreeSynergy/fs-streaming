@@ -2,7 +2,7 @@
 //!
 //! Pattern: plain data — filled from the core's runtime state and the relay's counters.
 
-use fs_store::{ObjectId, Timestamp};
+use fs_objects::{ObjectId, Timestamp};
 
 use super::{StreamState, TargetState};
 use crate::note::Note;

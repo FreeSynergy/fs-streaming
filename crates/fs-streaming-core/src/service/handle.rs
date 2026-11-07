@@ -6,8 +6,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
-use fs_store::ObjectId;
-use fs_store::traits::UnloggedObjects;
+use fs_objects::ObjectId;
+use fs_objects::traits::UnloggedObjects;
 use tokio::sync::broadcast;
 
 use super::runtime::StreamRt;

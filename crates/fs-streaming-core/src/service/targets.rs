@@ -4,7 +4,7 @@
 //! rule (address check, key rule, refusal while sending), writes, then tells the relay and the feed.
 //! A key never leaves this file except into the row and the relay's `TargetSpec`.
 
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use super::handle::StreamService;
 use crate::error::{Error, Result};

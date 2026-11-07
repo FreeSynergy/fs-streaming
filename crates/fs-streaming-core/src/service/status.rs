@@ -2,7 +2,7 @@
 //!
 //! Pattern: Facade view — nothing here is stored; it is put together on each call.
 
-use fs_store::ObjectId;
+use fs_objects::ObjectId;
 
 use super::handle::StreamService;
 use crate::error::Result;

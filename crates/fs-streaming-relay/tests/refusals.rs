@@ -119,7 +119,7 @@ async fn a_target_that_is_sending_cannot_be_edited_but_a_key_and_a_switch_can_ch
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn without_a_relay_nothing_runs_and_the_page_lists_streams() {
-    let store = std::sync::Arc::new(fs_store::TursoStore::open_in_memory().await.unwrap());
+    let store = std::sync::Arc::new(fs_objects::TursoStore::open_in_memory().await.unwrap());
     let bare = StreamService::new(store);
     assert!(matches!(bare.create("x").await, Err(Error::NoRelay)));
     let rig = Rig::new().await;

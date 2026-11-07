@@ -2,7 +2,7 @@
 //!
 //! Pattern: plain data — `file_id` stays unset until a sink hands over to fs-files.
 
-use fs_store::{ObjectId, Timestamp};
+use fs_objects::{ObjectId, Timestamp};
 
 /// What is known when a recording starts.
 #[derive(Clone, Debug, PartialEq)]

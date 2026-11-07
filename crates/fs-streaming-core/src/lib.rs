@@ -31,7 +31,7 @@ mod url;
 
 pub use cancel::CancelToken;
 pub use error::{Error, Result};
-pub use fs_store::{ObjectId, Timestamp};
+pub use fs_objects::{ObjectId, Timestamp};
 pub use model::{
     CheckResult, Created, Cursor, KeyCheck, Page, RecordingInfo, RecordingStart, Status, Stream,
     StreamState, Target, TargetState, TargetStatus,

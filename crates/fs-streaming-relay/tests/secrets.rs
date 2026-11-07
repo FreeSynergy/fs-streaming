@@ -9,8 +9,8 @@ use common::raw::{Answer, Raw};
 use common::rig::{Rig, scratch};
 use common::sink::{Mode, Sink};
 use common::wait::{LONG, until};
-use fs_store::TursoStore;
-use fs_store::traits::UnloggedObjects;
+use fs_objects::TursoStore;
+use fs_objects::traits::UnloggedObjects;
 use fs_streaming_core::{Note, Repo, Secret, Streaming, Streams, TargetState};
 use fs_streaming_relay::RelayConfig;
 
