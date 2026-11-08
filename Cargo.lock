@@ -716,16 +716,16 @@ checksum = "1c66915cc5391097de7a2b0b972e8505aa33c0df401fd3a6811dbdb32881ba48"
 
 [[package]]
 name = "fs-interfaces"
-version = "0.45.0"
-source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.45.0#bc4eda933e80c537ae2d73dea371051ed3443fd9"
+version = "0.0.1"
+source = "git+https://github.com/FreeSynergy/fs-interfaces?tag=v0.0.1#9f2d3a0626d7382b478c754eb31834146188dfab"
 dependencies = [
  "capnp",
 ]
 
 [[package]]
 name = "fs-objects"
-version = "0.5.0"
-source = "git+https://github.com/FreeSynergy/fs-objects?tag=v0.5.0#b0a794ab702d8cf8660956950e1e8868e4c155c3"
+version = "0.0.1"
+source = "git+https://github.com/FreeSynergy/fs-objects?tag=v0.0.1#7cf0f05e3a9835b582aa2ac22014f2a1f1bff200"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -742,7 +742,7 @@ dependencies = [
 
 [[package]]
 name = "fs-streaming-core"
-version = "0.2.0"
+version = "0.0.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -760,7 +760,7 @@ dependencies = [
 
 [[package]]
 name = "fs-streaming-relay"
-version = "0.2.0"
+version = "0.0.1"
 dependencies = [
  "async-trait",
  "bytes",
