@@ -24,9 +24,23 @@ pub fn skip() -> bool {
     false
 }
 
-/// A short test video with audio: H.264 (`OpenH264`) and AAC, a keyframe every second.
+/// A short test video with audio: H.264 and AAC, a keyframe every second. The encoder is `OpenH264` where the
+/// local ffmpeg has it (Fedora), else x264 (the usual build elsewhere, for example on the CI runner).
 pub fn make_video(path: &Path, secs: u32) {
-    make_video_with(path, secs, &["-c:v", "libopenh264", "-g", "25"]);
+    let encoder = if has_encoder("libopenh264") {
+        "libopenh264"
+    } else {
+        "libx264"
+    };
+    make_video_with(path, secs, &["-c:v", encoder, "-g", "25"]);
+}
+
+/// Whether `ffmpeg -encoders` lists `name`.
+fn has_encoder(name: &str) -> bool {
+    Command::new("ffmpeg")
+        .args(["-hide_banner", "-encoders"])
+        .output()
+        .is_ok_and(|out| String::from_utf8_lossy(&out.stdout).contains(name))
 }
 
 /// The same with other video encoder options (for example AV1, which FLV carries as enhanced RTMP).
