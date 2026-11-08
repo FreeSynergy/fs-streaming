@@ -8,7 +8,7 @@ What is different here: the stream is passed on untouched, so quality is not los
 
 ## What it can do today
 
-Latest tag: `v0.2.0` (stage 1 of the design).
+Latest tag: `v0.0.1` (stage 1 of the design).
 
 - Receive one RTMP stream and send it to many RTMP or RTMPS targets.
 - Record the stream to a folder as FLV.
