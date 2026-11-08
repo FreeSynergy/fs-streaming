@@ -58,7 +58,11 @@ async fn ffmpeg_through_the_relay_to_two_more_relays_and_a_recording() {
     }
     main.service.stop(made.id).await.unwrap();
     for r in [&r1, &r2] {
-        let id = if std::ptr::eq(r, &r1) { s1.id } else { s2.id };
+        let id = if std::ptr::eq(r, &raw const r1) {
+            s1.id
+        } else {
+            s2.id
+        };
         r.service.stop(id).await.unwrap();
     }
     for (name, folder) in [("own", &own), ("target one", &t1), ("target two", &t2)] {
@@ -107,12 +111,12 @@ async fn payload_and_timestamps_are_byte_identical() {
     for i in 1..=30u32 {
         let ts = i * 40 + 7;
         let mut v = vec![if i % 10 == 1 { 0x17 } else { 0x27 }, 1, 0, 0, 0];
-        v.extend((0..(200 + i)).map(|b| (b * 7 + i) as u8));
+        v.extend((0..(200 + i)).map(|b| u8::try_from((b * 7 + i) & 0xFF).unwrap()));
         raw.video(ts, &v).await;
         sent.push((9, ts, v));
         let a: Vec<u8> = [0xAF, 0x01]
             .into_iter()
-            .chain((0..50).map(|b| (b + i) as u8))
+            .chain((0..50).map(|b| u8::try_from((b + i) & 0xFF).unwrap()))
             .collect();
         raw.audio(ts, &a).await;
         sent.push((8, ts, a));

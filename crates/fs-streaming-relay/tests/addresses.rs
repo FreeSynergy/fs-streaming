@@ -8,7 +8,7 @@ use common::rig::Rig;
 use fs_streaming_core::{Error, Note, StreamService, StreamState, Streaming, Streams};
 use fs_streaming_relay::{RelayConfig, RtmpRelay};
 
-fn own(e: Error) -> bool {
+fn own(e: &Error) -> bool {
     matches!(e, Error::InvalidInput(m) if m.contains("own"))
 }
 
@@ -41,7 +41,7 @@ async fn a_target_at_the_relays_own_address_is_refused_also_through_a_wildcard_b
                 .add_target(made.id, "loop", &url, &made.key)
                 .await
                 .unwrap_err();
-            assert!(own(e), "{host} wildcard={wildcard}");
+            assert!(own(&e), "{host} wildcard={wildcard}");
         }
         let fine = rig
             .service
@@ -58,7 +58,7 @@ async fn a_target_at_the_relays_own_address_is_refused_also_through_a_wildcard_b
             .edit_target(fine.id, "ok", &format!("rtmp://127.0.0.1:{port}/live/x"))
             .await
             .unwrap_err();
-        assert!(own(e), "an edit to the own address too");
+        assert!(own(&e), "an edit to the own address too");
         assert_eq!(rig.service.targets(made.id).await.unwrap().len(), 1);
     }
 }

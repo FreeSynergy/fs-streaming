@@ -23,7 +23,7 @@ async fn handshake<S: AsyncRead + AsyncWrite + Unpin>(s: &mut S) -> Vec<u8> {
         }
         match hs.process_bytes(&buf[..n]) {
             Ok(HandshakeProcessResult::InProgress { response_bytes }) => {
-                s.write_all(&response_bytes).await.unwrap()
+                s.write_all(&response_bytes).await.unwrap();
             }
             Ok(HandshakeProcessResult::Completed {
                 response_bytes,
@@ -37,6 +37,7 @@ async fn handshake<S: AsyncRead + AsyncWrite + Unpin>(s: &mut S) -> Vec<u8> {
     }
 }
 
+#[allow(clippy::too_many_lines)] // one connection script per mode; splitting would scatter the protocol steps
 pub async fn serve<S: AsyncRead + AsyncWrite + Unpin>(
     mut s: S,
     mode: Mode,

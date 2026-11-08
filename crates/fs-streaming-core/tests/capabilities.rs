@@ -59,5 +59,5 @@ async fn what_the_contract_leaves_out_is_unsupported_with_a_reason() {
 async fn recording_is_unsupported_without_a_relay_that_can_record() {
     let c = caps().await;
     assert!(!c.is_supported("recording.start"));
-    assert!(!c.why_not("recording.start").unwrap().reason().is_empty());
+    assert_ne!(c.why_not("recording.start").unwrap().reason(), "");
 }

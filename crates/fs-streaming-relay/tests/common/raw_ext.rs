@@ -47,7 +47,9 @@ impl Raw {
             .await;
         while let Some((cmd, _, args)) = self.next_command().await {
             if cmd == "_result" {
-                self.stream_id = args
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+                // a stream id is a small whole number in an AMF0 double
+                let id = args
                     .iter()
                     .find_map(|a| {
                         if let Amf0Value::Number(n) = a {
@@ -57,6 +59,7 @@ impl Raw {
                         }
                     })
                     .unwrap_or(1);
+                self.stream_id = id;
                 break;
             }
         }

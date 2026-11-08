@@ -24,7 +24,7 @@ pub fn skip() -> bool {
     false
 }
 
-/// A short test video with audio: H.264 (OpenH264) and AAC, a keyframe every second.
+/// A short test video with audio: H.264 (`OpenH264`) and AAC, a keyframe every second.
 pub fn make_video(path: &Path, secs: u32) {
     make_video_with(path, secs, &["-c:v", "libopenh264", "-g", "25"]);
 }

@@ -37,12 +37,12 @@ fn parse() -> Result<Args, String> {
                         .ok_or("--bind needs an address")?
                         .parse()
                         .map_err(|_| "bad address")?,
-                )
+                );
             }
             "--record" => args.record = Some(it.next().ok_or("--record needs a folder")?),
             "--key" => {
                 args.targets.last_mut().ok_or("--key comes after a URL")?.1 =
-                    it.next().ok_or("--key needs a value")?
+                    it.next().ok_or("--key needs a value")?;
             }
             "--key-env" => {
                 let var = it.next().ok_or("--key-env needs a name")?;

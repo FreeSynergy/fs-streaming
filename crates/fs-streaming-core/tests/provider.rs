@@ -45,6 +45,16 @@ fn unsupported_id<T: std::fmt::Debug>(r: Result<T>) -> String {
     }
 }
 
+struct Nobody;
+#[async_trait]
+impl fs_streaming_core::StatusListener for Nobody {
+    async fn stream(&self, _: Stream) {}
+    async fn target(&self, _: Target) {}
+    async fn recording(&self, _: fs_streaming_core::RecordingInfo) {}
+    async fn removed(&self, _: ObjectId) {}
+    async fn done(&self) {}
+}
+
 #[tokio::test]
 async fn what_a_provider_does_not_override_says_unsupported_with_its_capability_id() {
     let p = ReadOnly;
@@ -79,15 +89,6 @@ async fn what_a_provider_does_not_override_says_unsupported_with_its_capability_
     );
     assert_eq!(unsupported_id(p.remove_target(id).await), "restream.add");
     assert_eq!(unsupported_id(p.check(id).await), "stream.check");
-    struct Nobody;
-    #[async_trait]
-    impl fs_streaming_core::StatusListener for Nobody {
-        async fn stream(&self, _: Stream) {}
-        async fn target(&self, _: Target) {}
-        async fn recording(&self, _: fs_streaming_core::RecordingInfo) {}
-        async fn removed(&self, _: ObjectId) {}
-        async fn done(&self) {}
-    }
     let sub = p.subscribe(std::sync::Arc::new(Nobody)).await;
     assert_eq!(unsupported_id(sub.map(|_| ())), "stream.subscribe");
     let caps = p.capabilities();

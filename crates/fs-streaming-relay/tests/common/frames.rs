@@ -14,9 +14,13 @@ impl Raw {
     /// Tick `n`: a video frame of `size` bytes (a keyframe every ten) and an audio frame, both at `n * 40`.
     pub async fn tick(&mut self, n: u32, size: usize) {
         let mut v = vec![if n % 10 == 0 { 0x17 } else { 0x27 }, 1, 0, 0, 0];
-        v.resize(size, n as u8);
+        v.resize(size, u8::try_from(n & 0xFF).unwrap());
         self.video(n * 40, &v).await;
-        self.audio(n * 40, &[0xAF, 0x01, n as u8, 1, 2, 3]).await;
+        self.audio(
+            n * 40,
+            &[0xAF, 0x01, u8::try_from(n & 0xFF).unwrap(), 1, 2, 3],
+        )
+        .await;
     }
 }
 

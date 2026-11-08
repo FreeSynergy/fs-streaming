@@ -16,6 +16,7 @@ use fs_streaming_relay::RelayConfig;
 
 const MARKER: &str = "MARKERKEY0123456789abcdefMARKER";
 
+#[allow(clippy::too_many_lines)] // one end-to-end scenario around a single logged secret
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_marker_key_appears_only_in_the_private_stores_target_row() {
     let log = Capture::default();

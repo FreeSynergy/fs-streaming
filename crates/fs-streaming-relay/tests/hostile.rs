@@ -54,7 +54,10 @@ async fn a_huge_nest_of_amf_arrays_right_after_the_handshake_ends_only_that_conn
         StreamState::Live,
         "the process and the stream are fine"
     );
-    assert!(Raw::connect(rig.addr).await.publish("live/x", "y").await != Answer::Accepted);
+    assert_ne!(
+        Raw::connect(rig.addr).await.publish("live/x", "y").await,
+        Answer::Accepted
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

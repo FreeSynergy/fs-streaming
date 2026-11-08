@@ -46,7 +46,8 @@ pub struct Sink {
     pub publishes: Arc<Mutex<Vec<(String, String)>>>,
     release: watch::Sender<bool>,
     task: tokio::task::JoinHandle<()>,
-    _stop: Option<std::sync::mpsc::Sender<()>>,
+    #[allow(dead_code)] // never read: dropping it ends the runtime thread of `start_threaded`
+    stop_on_drop: Option<std::sync::mpsc::Sender<()>>,
 }
 
 impl Drop for Sink {
@@ -61,6 +62,11 @@ impl Sink {
     }
 
     /// With TLS in front when an acceptor is given.
+    #[allow(
+        clippy::unused_async,
+        clippy::unused_async_trait_impl,
+        clippy::many_single_char_names
+    )] // async keeps the call sites uniform; g/a/p are the shared logs
     pub async fn start_with(mode: Mode, tls: Option<tokio_rustls::TlsAcceptor>) -> Sink {
         let socket = tokio::net::TcpSocket::new_v4().unwrap();
         if mode == Mode::Stall {
@@ -105,7 +111,7 @@ impl Sink {
             publishes,
             release,
             task,
-            _stop: None,
+            stop_on_drop: None,
         }
     }
 
@@ -123,7 +129,7 @@ impl Sink {
             let _ = stop_rx.recv();
         });
         let mut sink = rx.recv().unwrap();
-        sink._stop = Some(stop_tx);
+        sink.stop_on_drop = Some(stop_tx);
         sink
     }
 
