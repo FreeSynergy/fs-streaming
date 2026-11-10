@@ -46,13 +46,14 @@ impl Program {
     }
 }
 
-/// `$XDG_DATA_HOME/freesynergy/streaming`, else `$HOME/.local/share/freesynergy/streaming`.
+/// `$XDG_DATA_HOME/freesynergy/streaming`, else `$HOME/.local/share/...`, else (Windows) `%LOCALAPPDATA%\...`.
 fn data_dir() -> Result<PathBuf, String> {
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .filter(|p| p.is_absolute())
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
-        .ok_or("no data folder: give --store or set $XDG_DATA_HOME or $HOME")?;
+        .or_else(|| std::env::var_os("LOCALAPPDATA").map(PathBuf::from))
+        .ok_or("no data folder: give --store or set $XDG_DATA_HOME, $HOME or %LOCALAPPDATA%")?;
     Ok(base.join("freesynergy").join("streaming"))
 }
 

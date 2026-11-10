@@ -1,6 +1,6 @@
 # fs-streaming – Design
 
-Stage 1 of the design: **forward and record, no decoding.** No GUI, no capnp server. Contract: `streaming.capnp` in `fs-interfaces` v0.29.0 (draft, provisional; its header is binding). Program docs: `fs-documentation/docs/en/programs/apps/streaming/`.
+Stage 1 of the design: **forward and record, no decoding.** A window (the generated admin frontend, ADR 0065/0066) over the core in the same process; no capnp server. Contract: `streaming.capnp` in `fs-interfaces` v0.29.0 (draft, provisional; its header is binding). Program docs: `fs-documentation/docs/en/programs/apps/streaming/`.
 
 ## State
 
@@ -13,15 +13,18 @@ Version 0.1.0. Stage 1 of the design; no capnp server, no GUI. **Tested only on 
 | Forwarding to RTMP and RTMPS targets, no decoding, enhanced RTMP passes through | done |
 | `check` | done; can only know an explicit refusal |
 | FLV recording through `RecordingSink`, `FolderSink` | done; handing over to fs-files not built |
+| Type description `Stream`, `Target` (`DescribesType`, `fs-streaming-core/src/describe`) | done; every capability id of `requirements.md` is in one table (43 ids); the app runs the supported rows |
+| Window `fs-streaming` / `fs-streaming-app`: window shell + generated admin frontend, one view per type | done; Backends over the core in the same process, list = `find` with an empty query (paging by cursor) |
+| `Streaming.types` (`TypeCatalog`) in `streaming.capnp` | contract done (`fs-interfaces` v0.0.10); **no capnp server exists**, so nothing answers it yet |
 | Everything else in the contract's root comment | not built, reported unsupported |
-| Tests | 94, real sockets, `ffmpeg` and `ffprobe` as test tools |
+| Tests | core and relay as before (real sockets, `ffmpeg`, `ffprobe`) plus `describe`, `backend`, `window`, `words` |
 
 Checked by independent reviewers over several rounds before the tag.
 
 ## Decisions (the owner may change them; all provisional)
 
-### Two crates
-`fs-streaming-core` has the model, rules and storage, and no media or sockets, behind the port `Relay` (Strategy). `fs-streaming-relay` implements it: tokio tasks, RTMP through `rml_rtmp` (MIT, sans-I/O sessions) behind our own trait (Adapter), so it can be swapped.
+### Four crates
+`fs-streaming-core` has the model, rules and storage, and no media or sockets, behind the port `Relay` (Strategy). `fs-streaming-relay` implements it: tokio tasks, RTMP through `rml_rtmp` (MIT, sans-I/O sessions) behind our own trait (Adapter), so it can be swapped. `fs-streaming-app` is the window: the standard shell of ADR 0065 around `fs-admin-frontend` (git `rev` of `fs-components`, provisional until it is a tag), the two Backends, the English words, About. `fs-streaming` is the binary; the default command is the window. No drawing code and no look in any of them (ADR 0066).
 
 ### Storage and secrets
 Streams and targets are written with `UnloggedObjects`, in a store the host passes and never connects to the hub: they hold or sit beside secrets, and an ordinary write would keep them in the log. Publisher key: 256 random bits from `getrandom`, shown once; only `sha256` is kept; compared in constant time. Target key: stored as given, because it has to be sent, and only in that store; there is no read path. The host decides on encryption at rest, and the store refuses nothing here, so **the DESIGN and the interface say that a target key is only as safe as this file**. No key vault exists yet (ADR 0024).
@@ -59,6 +62,44 @@ Pattern Strategy: port `RecordingSink`, `create(info) -> writer`, `finish`. `Fol
 
 ### Not built
 Everything listed in the contract's root comment. `Status` is live only, nothing of it is stored.
+
+## The type description and the window (Thread R, 2026-11-10)
+
+**Pattern and trait (ADR 0043), one sentence each.** The description: Registry entry, the trait is `DescribesType` of `fs-types` v0.0.2 (the same tag the admin frontend uses, so both name one `TypeDescription`), implemented by `Stream` and `Target` in `describe/`. The commands: ONE table (`describe/table.rs`, rows built in `stream_rows`, `planned_rows`, `target_rows`), a Registry of rows (name, kind, input, result, `supported`, reason). The Backends: Adapter to `Backend` of the frontend plus Command (one arm per row). The link from the synchronous frontend to the async core: Adapter (`CoreLink`, blocks the window thread for one call). Words: Strategy behind `Say`, one English table.
+
+**Standards.** No data standard covers a live stream (`docs/en/data/` has no streaming domain). `TypeDescription.standard` says so: `none (own type, streaming.capnp; RTMP ingest)` for `Stream`, `... RTMP and RTMPS addresses` for `Target`. Fields use basic types of `fs-types` (text, link, choice, reference, date-time). Ids are `urn:uuid:<uuid>`.
+
+**All commands, supported or not.** `describe()` reports every row of the table (Stream 43 rows incl. the contract's, Target 7), supported or not, because a frontend can only show "coming soon" for what the description carries (coordinator, 2026-11-10). `types.capnp` has **no `supported` field yet** (Thread T adds it; assumed, not invented here). Until then the description carries no flag, the Backend answers `unsupported:<name>` (as `BackendError::Unavailable`) for a row with `supported = false`, and `StreamBackend::supported(name)` / `TargetBackend::supported(name)` read the table. **The switch is one function, `to_command` in `describe/table.rs`:** when the field exists, set it there from `row.supported`; nothing else changes. When the frontend's `Backend` has `supported` (Thread A has it uncommitted at the pinned rev), the inherent method moves into the trait impl unchanged. A test fails when the table lacks a capability id of `requirements.md` (`tests/data/capability-ids.txt`; with `FS_REQUIREMENTS_MD=<file>` it is compared with the live file) or has one twice.
+
+**Keys are not in any record.** `Stream` has no key field; `Target` has the flag `hasKey` and no key. A test greps records, results and the About for a key made by the test as a marker.
+
+**Provisional choices (reported).** There is no boolean basic type: flags are `choice` of two keys (`on`/`off`, `yes`/`no`). A count (`bytesIn`) is `text`. Notes are the core's fixed English sentences (`Note::text`), not keys. The About says origin `source`: the store passes the program nothing yet. `windows-targets: "x86_64"` in `release.yml`: no Unix-only code is in the app (the private store folder is made with mode 0700 on Unix only), but it was never built for Windows; the first release run shows it.
+
+## Unsupported (named, not faked)
+
+* **`create` and `rotateKey` (Stream): held back by the app, not by the core.** The publisher key is shown once and must never be in a field value, record or About. The frontend has no one-time secret display, so the app does not run them: until the Strategy decides how a key is shown once (a secret kind in `fs-types`, or a hand-over that stays outside records), **a stream cannot be made from the window**. The core and `Streams` can.
+* **`setKey` (Target) and the key of `add`:** the same for a target key: no masked input that keeps the text out of the form model. `add` takes name and address and no key; `setKey` is not run.
+* **All commands of `requirements.md` that the core cannot do** (ingest by SRT/RTSP/WHIP/RTMPS, playback, remux, pull, viewers, hooks, recordings listing, everything that decodes or encodes, guests, fediverse, ...): rows of the table with `supported = false` and a reason. Not built; see "Not built" below.
+* **Serving `Streaming.types` over Cap'n Proto:** the contract has it (`fs-interfaces` v0.0.10), but this program has no capnp server yet.
+* **The frontend at the pinned rev** does not lock unsupported commands (no `supported` in its `Backend`/`TypeDescription`): they show as ordinary buttons and, when pressed, give the message `message.unavailable`, which also marks the record list as possibly old (`Unavailable` is the only error that can carry `unsupported:<name>`). With about six list-level commands the head of the list is crowded (found in a picture, `--snapshot`). Both are the frontend's to fix; nothing in this repo draws.
+* **Windows:** see above, untested.
+
+## Pattern map
+
+| Where | Pattern | Why |
+|---|---|---|
+| `core/describe/` (`Stream`, `Target`) | Registry entry, trait `DescribesType` | the description is what the frontend generates from |
+| `core/describe/table.rs`, `*_rows.rs`, `row.rs` | Registry + Builder | one table of every command, one switch for `supported` |
+| `core/service`, `core/repo`, `core/state`, `core/traits`, `core/model` | Facade, Repository, State, Strategy, Observer (as in each module head) | the core, unchanged by Thread R |
+| `relay/` | Strategy (`Relay`, `RecordingSink`), Adapter (`rml_rtmp`) | unchanged by Thread R |
+| `app/streams.rs`, `app/targets.rs` | Adapter to `Backend` + Command | one arm per row of the table |
+| `app/core_link.rs` | Adapter | sync frontend, async core |
+| `app/records.rs`, `app/errors.rs`, `app/ids.rs`, `app/values.rs` | Adapter | core values to the frontend's records, errors, ids, input |
+| `app/words.rs`, `app/words_labels.rs` | Strategy (`Say`) + Registry | English now, translation later replaces the table |
+| `app/open.rs` | Facade | store, core and relay in this process |
+| `app/window.rs` | Facade | `admin_window` with one `TypeView` per type |
+| `app/about.rs`, `app/args.rs` | Value object | About from the package; plain options, no key on the command line |
+| `fs-streaming/main.rs` | Facade | the default command is the window |
 
 ## Tests
 Real sockets and real tools. `ffmpeg` and `ffprobe` are test-only tools, never a dependency of the program: a test publishes a generated video and audio to the real relay, with two local targets being further relay instances, and `ffprobe` reads what arrives and the recording. A test that needs them says so plainly and fails if they are absent, unless `FS_STREAMING_NO_FFMPEG=1`, which is then reported as skipped.

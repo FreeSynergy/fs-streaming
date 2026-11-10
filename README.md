@@ -19,7 +19,7 @@ Latest tag: `v0.0.1` (stage 1 of the design).
 ## What is not there yet
 
 - Tested only on loopback with ffmpeg, never against a real streaming platform.
-- No window, no server. Receiving is plain RTMP and stays on loopback by default.
+- A window (generated admin frontend) over streams and targets, but no server. From the window no stream can be made yet, because the one-time key has no safe display (DESIGN.md, Unsupported). Receiving is plain RTMP and stays on loopback by default.
 - Handing a recording to Files is not built. Everything else in the contract is reported as "not possible".
 - A forwarding loop through another machine cannot be detected from here.
 - The interface is a draft, marked provisional.
@@ -31,7 +31,7 @@ Streaming is the last step in the plan, in the media suite next to files. FreeSy
 
 ## For developers
 
-- Workspace crates: `fs-streaming-core` (streams, targets, keys as secrets, state; no media) and `fs-streaming-relay` (the forwarding, on `rml_rtmp` behind our own trait).
+- Workspace crates: `fs-streaming-core` (streams, targets, keys as secrets, state, the type description; no media), `fs-streaming-relay` (the forwarding, on `rml_rtmp` behind our own trait), `fs-streaming-app` (the window) and `fs-streaming` (the binary).
 - The contract is `streaming.capnp` in [fs-interfaces](https://github.com/FreeSynergy/fs-interfaces) (draft, provisional). Streaming owns it.
 - Build and test: `cargo build --workspace` and `cargo test --workspace`. Set `FS_STREAMING_NO_FFMPEG=1` to skip the tests that need ffmpeg.
 - Design and decisions: [DESIGN.md](DESIGN.md).

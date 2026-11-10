@@ -1,0 +1,23 @@
+name: release
+on:
+  push: { tags: ["v*"] }
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  packages: write
+jobs:
+  release:
+    uses: FreeSynergy/fs-release/.github/workflows/release.yml@main
+    with:
+      binaries: fs-streaming
+      cargo-package: fs-streaming
+      name: fs-streaming
+      kind: app
+      app-id: net.freesynergy.Streaming
+      macos: false
+      # x86_64 exe: no Unix-only code in the app (the store folder is made private on Unix only); never built on Windows yet, the first release run shows it
+      windows-targets: "x86_64"
+    secrets:
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
