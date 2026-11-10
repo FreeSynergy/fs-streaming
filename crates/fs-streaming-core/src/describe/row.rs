@@ -79,6 +79,21 @@ impl Row {
         }
     }
 
+    /// A row for a command that is built elsewhere (the standard `find`).
+    pub fn from_command(
+        owner: Owner,
+        capabilities: &'static [&'static str],
+        command: CommandDescription,
+    ) -> Self {
+        Self {
+            owner,
+            capabilities,
+            command,
+            supported: true,
+            reason: "",
+        }
+    }
+
     /// Add an input field.
     #[must_use]
     pub fn input(mut self, field: FieldDescription) -> Self {

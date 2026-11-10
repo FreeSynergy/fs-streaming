@@ -102,7 +102,11 @@ fn the_description_carries_every_row_of_its_type() {
         let rows: Vec<_> = table().into_iter().filter(|r| r.owner == owner).collect();
         assert_eq!(d.commands.len(), rows.len());
         for r in rows {
-            assert_eq!(d.find_command(&r.command.name), Some(&r.command));
+            let c = d.find_command(&r.command.name).expect("described");
+            assert_eq!(
+                (&c.kind, &c.input, &c.result),
+                (&r.command.kind, &r.command.input, &r.command.result)
+            );
         }
     }
 }
@@ -148,7 +152,7 @@ fn a_command_on_one_record_refers_to_its_own_type() {
         (Stream::describe(), "Stream"),
         (Target::describe(), "Target"),
     ] {
-        for name in ["rename", "delete", "stop", "edit", "remove", "setEnabled"] {
+        for name in ["delete", "stop", "remove", "setEnabled"] {
             if let Some(c) = d.find_command(name) {
                 let id = c.input.first().expect("an input");
                 assert_eq!(id.name, "id", "{name}");
@@ -157,4 +161,56 @@ fn a_command_on_one_record_refers_to_its_own_type() {
             }
         }
     }
+}
+
+#[test]
+fn the_description_is_sound_and_flags_each_command_from_its_row() {
+    for (d, owner) in [
+        (Stream::describe(), Owner::Stream),
+        (Target::describe(), Owner::Target),
+    ] {
+        d.validate().expect("sound");
+        for r in table().into_iter().filter(|r| r.owner == owner) {
+            let c = d
+                .find_command(&r.command.name)
+                .expect("every row is described");
+            assert_eq!(c.supported, r.supported, "{}", r.command.name);
+        }
+        assert!(
+            d.commands.iter().any(|c| !c.supported),
+            "planned commands are carried, locked"
+        );
+    }
+}
+
+#[test]
+fn change_has_no_input_and_find_is_the_standard_one() {
+    for d in [Stream::describe(), Target::describe()] {
+        let change = d.find_command("change").expect("change");
+        assert!(change.input.is_empty() && change.supported);
+        let find = d.find_command("find").expect("find");
+        assert_eq!(find.input[0].name, "term");
+        assert!(find.supported);
+    }
+}
+
+#[test]
+fn record_commands_are_the_ones_on_one_record() {
+    let d = Stream::describe();
+    let names: Vec<&str> = d
+        .record_commands()
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect();
+    for n in [
+        "change",
+        "delete",
+        "stop",
+        "setRecording",
+        "check",
+        "status",
+    ] {
+        assert!(names.contains(&n), "{n}");
+    }
+    assert!(!names.contains(&"find") && !names.contains(&"create"));
 }

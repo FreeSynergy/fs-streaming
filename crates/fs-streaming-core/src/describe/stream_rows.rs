@@ -4,7 +4,7 @@
 //! field: `create` and `rotateKey` are held back (see their reason) because a key shown once needs a display that
 //! keeps it out of records, and the frontend has none.
 
-use fs_types::{BasicType, CommandKind};
+use fs_types::{BasicType, CommandDescription, CommandKind};
 
 use super::fields::{arg, flag, id};
 use super::row::{Owner, Row};
@@ -16,11 +16,11 @@ const KEY_ONCE: &str = "the core does it, but the publisher key is shown once an
 /// Rows for the methods of `Streams` that concern a stream.
 pub(super) fn rows() -> Vec<Row> {
     vec![
-        // The list is `find` with an empty query (decision of the Strategy); the core pages by cursor.
-        Row::new(S, "find", CommandKind::Find, &["stream.list"]).result(
-            arg(S, "find", "streams", BasicType::Reference)
-                .target("Stream")
-                .multiple(),
+        // The list is the standard `find` with an empty term (rule in `types.capnp`); the core pages by cursor.
+        Row::from_command(
+            S,
+            &["stream.list"],
+            CommandDescription::standard_find("stream.find", "Stream"),
         ),
         Row::new(S, "create", CommandKind::Create, &["stream.create"])
             .input(arg(S, "create", "name", BasicType::Text).required())
@@ -31,10 +31,9 @@ pub(super) fn rows() -> Vec<Row> {
             )
             .result(arg(S, "create", "ingestUrl", BasicType::Link))
             .planned(KEY_ONCE),
-        Row::new(S, "rename", CommandKind::Change, &[])
-            .input(id(S, "rename"))
-            .input(arg(S, "rename", "name", BasicType::Text).required())
-            .result(id(S, "rename")),
+        // `change` is an `Edit` and has no input of its own (rule in `types.capnp`): the name, and the flag
+        // `recording`, are changed field by field.
+        Row::new(S, "change", CommandKind::Change, &[]),
         Row::new(S, "delete", CommandKind::Delete, &["stream.delete"]).input(id(S, "delete")),
         Row::new(S, "rotateKey", CommandKind::Other, &["publisher.authorize"])
             .input(id(S, "rotateKey"))

@@ -3,7 +3,7 @@
 //! Pattern: Registry entry — rows of the table. A target key is a secret: `add` takes none, and `setKey` is held
 //! back, because a form would show the typed key and keep it in the form model; fs-types has no masked kind.
 
-use fs_types::{BasicType, CommandKind};
+use fs_types::{BasicType, CommandDescription, CommandKind};
 
 use super::fields::{arg, flag, id, stream_ref};
 use super::row::{Owner, Row};
@@ -15,21 +15,21 @@ const MASKED: &str = "the core does it, but a target key is a secret and the adm
 /// Rows for targets.
 pub(super) fn rows() -> Vec<Row> {
     vec![
-        // Targets of one stream, or of all streams when the stream is not given.
-        Row::new(T, "find", CommandKind::Find, &[])
-            .input(stream_ref(T, "find", "stream"))
-            .result(arg(T, "find", "targets", BasicType::Reference).target("Target").multiple()),
+        // The standard `find`; the filter by stream is a further input field (rule in `types.capnp`).
+        Row::from_command(
+            T,
+            &[],
+            CommandDescription::standard_find("target.find", "Target")
+                .input(stream_ref(T, "find", "stream")),
+        ),
         // `restream.add` is: add, edit, enable or disable, remove. The key is set apart (`setKey`).
         Row::new(T, "add", CommandKind::Create, &["restream.add"])
             .input(stream_ref(T, "add", "stream").required())
             .input(arg(T, "add", "name", BasicType::Text).required())
             .input(arg(T, "add", "url", BasicType::Link).required())
             .result(id(T, "add")),
-        Row::new(T, "edit", CommandKind::Change, &[])
-            .input(id(T, "edit"))
-            .input(arg(T, "edit", "name", BasicType::Text).required())
-            .input(arg(T, "edit", "url", BasicType::Link).required())
-            .result(id(T, "edit")),
+        // `change` is an `Edit`: name, address, and the flag `enabled`, field by field.
+        Row::new(T, "change", CommandKind::Change, &[]),
         Row::new(T, "setEnabled", CommandKind::Other, &[])
             .input(id(T, "setEnabled"))
             .input(flag(

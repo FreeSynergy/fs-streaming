@@ -1,10 +1,9 @@
 //! The command table and the one switch.
 //!
 //! Pattern: Registry — one table of every command of both types, supported or not, and ONE function
-//! ([`commands_of`]) that turns rows into the commands a description reports. Until `fs-types` has the field
-//! `supported` (Thread T, `types.capnp`), the description carries all commands and no flag, and the app answers
-//! `unsupported:<name>` for the rows with `supported == false` (the Backend, not the frontend). When the field
-//! exists, set it in `to_command` below: that is the only change in this crate.
+//! ([`to_command`], marked `// SWITCH`) that turns a row into the command the description reports, with the
+//! flag `supported` of `fs-types` set from `row.supported`. The table stays as the source of the reasons (for the
+//! developer, in DESIGN.md and tests) and of the capability ids that a test checks against `requirements.md`.
 
 use fs_types::CommandDescription;
 
@@ -20,12 +19,13 @@ pub fn table() -> Vec<Row> {
     rows
 }
 
-/// THE SWITCH: one row to the command the description reports.
-///
-/// Today every row becomes a plain command. With the field `supported` in `fs-types` this is where
-/// `row.supported` is written into it (and `row.reason` as its reason, if the field has one).
+/// SWITCH: one row to the command the description reports. `supported` is the field of `CommandDescription`
+/// (`types.capnp`, `fs-types` v0.0.11): a row the core cannot do is reported `unsupported()`, "coming soon" in a
+/// frontend, which frees it when this flips. Flip `supported` in the row, nowhere else.
 fn to_command(row: &Row) -> CommandDescription {
-    row.command.clone()
+    // SWITCH
+    let c = row.command.clone();
+    if row.supported { c } else { c.unsupported() }
 }
 
 /// The commands the description of `owner` reports: all rows of the owner, supported or not.
