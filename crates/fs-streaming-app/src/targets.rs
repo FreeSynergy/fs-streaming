@@ -6,13 +6,16 @@
 use fs_admin_frontend::{Backend, BackendError, Outcome, Record, Values};
 use fs_streaming_core::Target;
 use fs_streaming_core::describe::Owner;
+use fs_types::{DescribesType, Edit};
 
 use crate::core_link::CoreLink;
+use crate::edits::{checked, needed, part};
 use crate::errors::{backend_error, unsupported};
+use crate::ids::from_iri;
 use crate::ids::to_iri;
 use crate::records;
 use crate::streams::row_supported;
-use crate::values::{flag, id_of, one};
+use crate::values::{flag, flag_of, id_of, matches, one, record_of};
 
 /// The targets of all streams.
 pub struct TargetBackend {
@@ -23,11 +26,6 @@ impl TargetBackend {
     /// Targets over `core`.
     pub fn new(core: CoreLink) -> Self {
         Self { core }
-    }
-
-    /// Whether the core can carry out `command`; see `StreamBackend::supported`.
-    pub fn supported(&self, command: &str) -> bool {
-        row_supported(Owner::Target, command) == Some(true)
     }
 
     fn all(&self, only: Option<fs_objects::ObjectId>) -> Result<Vec<Target>, BackendError> {
@@ -57,13 +55,72 @@ impl TargetBackend {
 impl Backend for TargetBackend {
     fn list(&self, query: &Values) -> Result<Vec<Record>, BackendError> {
         let only = match one(query, "stream") {
-            Some(text) => Some(crate::ids::from_iri(text).ok_or(BackendError::NotFound)?),
+            Some(text) => Some(from_iri(text).ok_or(BackendError::NotFound)?),
             None => None,
         };
-        Ok(self.all(only)?.iter().map(records::target).collect())
+        let term = one(query, "term").unwrap_or_default();
+        Ok(self
+            .all(only)?
+            .iter()
+            .filter(|t| matches(term, &t.name))
+            .map(records::target)
+            .collect())
     }
 
-    fn run(&self, name: &str, input: &Values) -> Result<Outcome, BackendError> {
+    fn supported(&self, command: &str) -> bool {
+        row_supported(Owner::Target, command) == Some(true)
+    }
+
+    fn change(&self, record: &str, edit: &Edit) -> Result<Outcome, BackendError> {
+        let id = from_iri(record).ok_or(BackendError::NotFound)?;
+        let edit = checked(edit, &Target::describe(), &["name", "url", "enabled"])?;
+        let streams = self.core.streams();
+        let enabled = part(&edit, "enabled")
+            .map(|p| {
+                p.values
+                    .first()
+                    .and_then(|v| flag_of(v))
+                    .ok_or_else(|| needed("enabled"))
+            })
+            .transpose()?;
+        let text = |field: &str| {
+            part(&edit, field)
+                .map(|p| p.values.first().cloned().ok_or_else(|| needed(field)))
+                .transpose()
+        };
+        let (name, url) = (text("name")?, text("url")?);
+        let current = self
+            .all(None)?
+            .into_iter()
+            .find(|t| t.id == id)
+            .ok_or(BackendError::NotFound)?;
+        if name.is_some() || url.is_some() {
+            // The core changes name and address together: what the edit leaves out stays as it is.
+            self.core
+                .wait(streams.edit_target(
+                    id,
+                    name.as_deref().unwrap_or(&current.name),
+                    url.as_deref().unwrap_or(&current.url),
+                ))
+                .map_err(|e| backend_error(&e))?;
+        }
+        if let Some(on) = enabled {
+            self.core
+                .wait(streams.set_target_enabled(id, on))
+                .map_err(|e| backend_error(&e))?;
+        }
+        Ok(Outcome {
+            id: Some(to_iri(id)),
+            values: Values::new(),
+        })
+    }
+
+    fn run(
+        &self,
+        name: &str,
+        record: Option<&str>,
+        input: &Values,
+    ) -> Result<Outcome, BackendError> {
         match row_supported(Owner::Target, name) {
             None => return Err(BackendError::NotFound),
             Some(false) => return Err(unsupported(name)),
@@ -71,7 +128,7 @@ impl Backend for TargetBackend {
         }
         let streams = self.core.streams();
         let missing = || BackendError::Rejected(Vec::new());
-        let id = id_of(input, "id");
+        let id = record_of(record, input);
         let done = |id| Outcome {
             id: Some(to_iri(id)),
             values: Values::new(),
@@ -80,7 +137,7 @@ impl Backend for TargetBackend {
             "find" => Ok(Outcome {
                 id: None,
                 values: Values::from([(
-                    "targets".into(),
+                    "items".into(),
                     self.list(input)?.into_iter().map(|r| r.id).collect(),
                 )]),
             }),
@@ -95,18 +152,6 @@ impl Backend for TargetBackend {
                         n.ok_or_else(missing)?,
                         u.ok_or_else(missing)?,
                         "",
-                    ))
-                    .map_err(|e| backend_error(&e))?;
-                Ok(done(t.id))
-            }
-            "edit" => {
-                let (n, u) = (one(input, "name"), one(input, "url"));
-                let t = self
-                    .core
-                    .wait(streams.edit_target(
-                        id.ok_or_else(missing)?,
-                        n.ok_or_else(missing)?,
-                        u.ok_or_else(missing)?,
                     ))
                     .map_err(|e| backend_error(&e))?;
                 Ok(done(t.id))
@@ -126,6 +171,10 @@ impl Backend for TargetBackend {
                     .map_err(|e| backend_error(&e))?;
                 Ok(done(id))
             }
+            // `change` is a method of `Backend`, with an `Edit`; it never arrives here.
+            "change" => Err(BackendError::Unavailable(
+                "change goes through Backend::change".into(),
+            )),
             _ => Err(BackendError::Unavailable(format!("no handler for {name}"))),
         }
     }

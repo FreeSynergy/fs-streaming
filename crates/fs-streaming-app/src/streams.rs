@@ -2,17 +2,21 @@
 //!
 //! Pattern: Adapter (to the frontend's `Backend`) + Command (one arm per command of the table). Which commands
 //! may run is asked of the table of the description, not decided here; a row that is not supported answers
-//! `unsupported:<name>`. The publisher key is never read, shown or kept: `create` and `rotateKey` are not run.
+//! `unsupported:<name>` and `supported` says false. The publisher key is never read, shown or kept: `create` and `rotateKey` are not run.
 
 use fs_admin_frontend::{Backend, BackendError, Outcome, Record, Values};
 use fs_streaming_core::KeyCheck;
+use fs_streaming_core::Stream;
 use fs_streaming_core::describe::{Owner, table};
+use fs_types::{DescribesType, Edit};
 
 use crate::core_link::CoreLink;
+use crate::edits::{checked, needed, part};
 use crate::errors::{backend_error, unsupported};
+use crate::ids::from_iri;
 use crate::ids::to_iri;
 use crate::records::{self, stream_state_key};
-use crate::values::{flag, id_of, single, yes_no};
+use crate::values::{flag, flag_of, matches, one, record_of, single, yes_no};
 
 /// Whether the table has the command on `owner` and the core can do it.
 pub(crate) fn row_supported(owner: Owner, name: &str) -> Option<bool> {
@@ -32,21 +36,69 @@ impl StreamBackend {
     pub fn new(core: CoreLink) -> Self {
         Self { core }
     }
-
-    /// Whether the core can carry out `command`. The frontend of the rev in use does not ask yet; when its
-    /// `Backend` has `supported`, this body moves into the trait impl unchanged.
-    pub fn supported(&self, command: &str) -> bool {
-        row_supported(Owner::Stream, command) == Some(true)
-    }
 }
 
 impl Backend for StreamBackend {
-    fn list(&self, _query: &Values) -> Result<Vec<Record>, BackendError> {
+    fn list(&self, query: &Values) -> Result<Vec<Record>, BackendError> {
+        let term = one(query, "term").unwrap_or_default();
         let all = self.core.all_streams().map_err(|e| backend_error(&e))?;
-        Ok(all.iter().map(records::stream).collect())
+        Ok(all
+            .iter()
+            .filter(|s| matches(term, &s.name))
+            .map(records::stream)
+            .collect())
     }
 
-    fn run(&self, name: &str, input: &Values) -> Result<Outcome, BackendError> {
+    fn supported(&self, command: &str) -> bool {
+        row_supported(Owner::Stream, command) == Some(true)
+    }
+
+    fn change(&self, record: &str, edit: &Edit) -> Result<Outcome, BackendError> {
+        let id = from_iri(record).ok_or(BackendError::NotFound)?;
+        let edit = checked(edit, &Stream::describe(), &["name", "recording"])?;
+        let streams = self.core.streams();
+        if self
+            .core
+            .wait(streams.get(id))
+            .map_err(|e| backend_error(&e))?
+            .is_none()
+        {
+            return Err(BackendError::NotFound);
+        }
+        // Everything is read and checked first; then the core is called.
+        let name = part(&edit, "name")
+            .map(|p| p.values.first().cloned().ok_or_else(|| needed("name")))
+            .transpose()?;
+        let recording = part(&edit, "recording")
+            .map(|p| {
+                p.values
+                    .first()
+                    .and_then(|v| flag_of(v))
+                    .ok_or_else(|| needed("recording"))
+            })
+            .transpose()?;
+        if let Some(name) = name {
+            self.core
+                .wait(streams.rename(id, &name))
+                .map_err(|e| backend_error(&e))?;
+        }
+        if let Some(on) = recording {
+            self.core
+                .wait(streams.set_recording(id, on))
+                .map_err(|e| backend_error(&e))?;
+        }
+        Ok(Outcome {
+            id: Some(to_iri(id)),
+            values: Values::new(),
+        })
+    }
+
+    fn run(
+        &self,
+        name: &str,
+        record: Option<&str>,
+        input: &Values,
+    ) -> Result<Outcome, BackendError> {
         match row_supported(Owner::Stream, name) {
             None => return Err(BackendError::NotFound),
             Some(false) => return Err(unsupported(name)),
@@ -54,7 +106,7 @@ impl Backend for StreamBackend {
         }
         let streams = self.core.streams();
         let missing = || BackendError::Rejected(Vec::new());
-        let id = id_of(input, "id");
+        let id = record_of(record, input);
         let done = |id| Outcome {
             id: Some(to_iri(id)),
             values: Values::new(),
@@ -70,17 +122,6 @@ impl Backend for StreamBackend {
                         .collect(),
                 )]),
             }),
-            "rename" => {
-                let (id, new) = (
-                    id.ok_or_else(missing)?,
-                    input.get("name").and_then(|v| v.first()),
-                );
-                let s = self
-                    .core
-                    .wait(streams.rename(id, new.ok_or_else(missing)?))
-                    .map_err(|e| backend_error(&e))?;
-                Ok(done(s.id))
-            }
             "delete" => {
                 let id = id.ok_or_else(missing)?;
                 self.core
@@ -106,6 +147,10 @@ impl Backend for StreamBackend {
             "check" => self.check(id.ok_or_else(missing)?),
             "status" => self.status(id.ok_or_else(missing)?),
             // A row the table calls supported but this match does not know is a defect, and says so.
+            // `change` is a method of `Backend`, with an `Edit`; it never arrives here.
+            "change" => Err(BackendError::Unavailable(
+                "change goes through Backend::change".into(),
+            )),
             _ => Err(BackendError::Unavailable(format!("no handler for {name}"))),
         }
     }

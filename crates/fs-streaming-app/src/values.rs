@@ -22,12 +22,27 @@ pub fn id_of(input: &Values, field: &str) -> Option<ObjectId> {
 }
 
 /// `on`/`yes` is `true`, `off`/`no` is `false`; anything else is none.
-pub fn flag(input: &Values, field: &str) -> Option<bool> {
-    match one(input, field)? {
+pub fn flag_of(text: &str) -> Option<bool> {
+    match text {
         "on" | "yes" => Some(true),
         "off" | "no" => Some(false),
         _ => None,
     }
+}
+
+/// The flag in `field` of an input.
+pub fn flag(input: &Values, field: &str) -> Option<bool> {
+    flag_of(one(input, field)?)
+}
+
+/// The record a command works on: the id the frontend passes, else the field `id` of the input.
+pub fn record_of(record: Option<&str>, input: &Values) -> Option<ObjectId> {
+    record.and_then(from_iri).or_else(|| id_of(input, "id"))
+}
+
+/// Whether `record` (a name) matches the search term: empty matches all; else a case-insensitive part of it.
+pub fn matches(term: &str, name: &str) -> bool {
+    term.is_empty() || name.to_lowercase().contains(&term.to_lowercase())
 }
 
 /// One value, as a result entry.

@@ -17,6 +17,7 @@
 mod about;
 mod args;
 mod core_link;
+mod edits;
 mod errors;
 mod ids;
 mod open;

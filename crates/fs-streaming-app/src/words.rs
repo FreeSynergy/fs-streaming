@@ -58,8 +58,9 @@ const FRONTEND: &[(&str, &str)] = &[
     ),
     ("problem.date-time.bad", "This is not a date and time."),
     ("problem.choice.not-in-list", "Pick one of the choices."),
+    ("find.term", "Search term"),
+    ("find.items", "Found"),
     ("hint.stream.name", "A name for the stream"),
-    ("hint.stream.rename.name", "A new name"),
     ("hint.stream.create.name", "A name for the stream"),
     ("hint.target.name", "A name for the target"),
     (
@@ -71,7 +72,6 @@ const FRONTEND: &[(&str, &str)] = &[
         "hint.target.add.url",
         "rtmp://host/application or rtmps://host/application",
     ),
-    ("hint.target.edit.name", "A name for the target"),
     (
         "hint.target.edit.url",
         "rtmp://host/application or rtmps://host/application",

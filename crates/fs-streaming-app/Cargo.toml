@@ -12,8 +12,9 @@ rust-version.workspace = true
 fs-streaming-core = { path = "../fs-streaming-core" }
 fs-streaming-relay = { path = "../fs-streaming-relay" }
 fs-objects = { git = "https://github.com/FreeSynergy/fs-objects", tag = "v0.0.1" }
-fs-types = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.2" }
-# provisional: becomes a tag once reviewed (Strategy switches it)
+fs-types = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.11" }
+# BLOCKED: 4688cee is on fs-types v0.0.2; replace this rev (four lines) with the pushed commit of fs-admin-frontend that
+# uses fs-types v0.0.11 and has Backend::change / supported / run(name, record, input) (Thread A, not pushed on 2026-11-10).
 fs-admin-frontend = { git = "https://github.com/FreeSynergy/fs-components", rev = "4688ceef35d0f1a1c131d392a9da9f88e4bb9379" }
 fs-components-app = { git = "https://github.com/FreeSynergy/fs-components", rev = "4688ceef35d0f1a1c131d392a9da9f88e4bb9379" }
 fs-components-fields = { git = "https://github.com/FreeSynergy/fs-components", rev = "4688ceef35d0f1a1c131d392a9da9f88e4bb9379" }
