@@ -24,11 +24,11 @@ impl Publishing {
 
 impl Drop for Publishing {
     fn drop(&mut self) {
-        if self.armed {
-            if let Ok(rt) = tokio::runtime::Handle::try_current() {
-                let (live, serial) = (self.live.clone(), self.serial);
-                rt.spawn(async move { live.dropped(serial).await });
-            }
+        if self.armed
+            && let Ok(rt) = tokio::runtime::Handle::try_current()
+        {
+            let (live, serial) = (self.live.clone(), self.serial);
+            rt.spawn(async move { live.dropped(serial).await });
         }
     }
 }

@@ -101,12 +101,12 @@ impl Conn<'_> {
                 Ok(true)
             }
             8 | 9 | 18 => {
-                if let (Some(p), Some(kind)) = (&self.publishing, Kind::from_type_id(m.type_id)) {
-                    if p.stream_id == m.message_stream_id {
-                        p.live
-                            .hub
-                            .publish(p.serial, Frame::new(kind, m.timestamp.value, m.data));
-                    }
+                if let (Some(p), Some(kind)) = (&self.publishing, Kind::from_type_id(m.type_id))
+                    && p.stream_id == m.message_stream_id
+                {
+                    p.live
+                        .hub
+                        .publish(p.serial, Frame::new(kind, m.timestamp.value, m.data));
                 }
                 Ok(true)
             }

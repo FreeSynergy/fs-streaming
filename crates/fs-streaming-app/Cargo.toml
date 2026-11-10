@@ -1,0 +1,24 @@
+[package]
+name = "fs-streaming-app"
+description = "The streaming program of FreeSynergy: window shell and the generated admin frontend over streams and targets (ADR 0065, 0066)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fs-streaming-core = { path = "../fs-streaming-core" }
+fs-streaming-relay = { path = "../fs-streaming-relay" }
+fs-objects = { git = "https://github.com/FreeSynergy/fs-objects", tag = "v0.0.1" }
+fs-types = { git = "https://github.com/FreeSynergy/fs-interfaces", tag = "v0.0.2" }
+# provisional: becomes a tag once reviewed (Strategy switches it)
+fs-admin-frontend = { git = "https://github.com/FreeSynergy/fs-components", rev = "4688ceef35d0f1a1c131d392a9da9f88e4bb9379" }
+fs-components-app = { git = "https://github.com/FreeSynergy/fs-components", rev = "4688ceef35d0f1a1c131d392a9da9f88e4bb9379" }
+fs-components-fields = { git = "https://github.com/FreeSynergy/fs-components", rev = "4688ceef35d0f1a1c131d392a9da9f88e4bb9379" }
+fs-components-styles = { git = "https://github.com/FreeSynergy/fs-components", rev = "4688ceef35d0f1a1c131d392a9da9f88e4bb9379" }
+tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+
+[dev-dependencies]
+tempfile = "3"

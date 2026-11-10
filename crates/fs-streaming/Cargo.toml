@@ -1,0 +1,16 @@
+[package]
+name = "fs-streaming"
+description = "FreeSynergy.Streaming: receive a live stream and send it on to many targets. Without arguments the window opens."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "fs-streaming"
+path = "src/main.rs"
+
+[dependencies]
+fs-streaming-app = { path = "../fs-streaming-app" }

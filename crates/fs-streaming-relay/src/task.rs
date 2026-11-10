@@ -26,11 +26,11 @@ impl Task {
 
     /// Wait for it to end by itself for up to `limit`; then cut it off and wait until it is gone.
     pub async fn join_for(mut self, limit: std::time::Duration) {
-        if let Some(mut h) = self.0.take() {
-            if tokio::time::timeout(limit, &mut h).await.is_err() {
-                h.abort();
-                let _ = h.await;
-            }
+        if let Some(mut h) = self.0.take()
+            && tokio::time::timeout(limit, &mut h).await.is_err()
+        {
+            h.abort();
+            let _ = h.await;
         }
     }
 
