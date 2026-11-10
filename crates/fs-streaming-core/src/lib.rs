@@ -17,6 +17,7 @@
 )]
 
 mod cancel;
+pub mod describe;
 mod error;
 pub mod keys;
 pub mod model;
